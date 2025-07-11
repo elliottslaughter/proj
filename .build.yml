@@ -1,0 +1,23 @@
+image: nixos/latest
+sources:
+  - git@git.sr.ht:~lockshaw/proj
+secrets:
+  - 9663ab31-69a3-45c1-aeae-9cf9a8513539
+  - 5dfdaabc-d659-4e7b-8a40-4626e8cbea2b
+environment:
+  NIX_CONFIG: "experimental-features = nix-command flakes"
+
+tasks:
+  - build: |
+      if [[ "$GIT_REF" == refs/heads/master ]]; then
+        nix-env -iA cachix -f 'https://cachix.org/api/v1/install'
+        set +x
+        cachix authtoken "$(cat ~/.cachix-auth-token)"
+        set -x
+      fi
+      cd proj
+      set -euo pipefail
+      BUILT_PATHS="$(nix build --no-link --accept-flake-config --print-out-paths .#)"
+      if [[ "$GIT_REF" == refs/heads/master ]]; then
+        echo "$BUILT_PATHS" | cachix push ff
+      fi
