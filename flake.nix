@@ -34,6 +34,9 @@
         doctest = pkgs.callPackage ./pkgs/doctest { };
         pytest-skip-slow = pkgs.python3Packages.callPackage ./pkgs/pytest-skip-slow.nix { };
         proj-nvim = pkgs.callPackage ./pkgs/proj-nvim.nix { inherit proj; };
+        libdwarf-lite = pkgs.callPackage ./pkgs/libdwarf-lite.nix { };
+        cpptrace = pkgs.callPackage ./pkgs/cpptrace.nix { inherit libdwarf-lite; };
+        libassert = pkgs.callPackage ./pkgs/libassert.nix { inherit cpptrace; };
 
         rapidcheckFull = pkgs.symlinkJoin {
           name = "rapidcheckFull";
@@ -90,6 +93,7 @@
               rapidcheckFull
               pytest-skip-slow
               doctest
+              libassert
             ])
           ];
         };

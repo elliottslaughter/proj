@@ -11,6 +11,7 @@ include(doctestlib) # named doctestlib to avoid a name collision with doctest.cm
 include(gbenchmark)
 include(CTest)
 include(tp-utils)
+include(libassert)
 
 # TODO @lockshaw remove me
 # https://discourse.nixos.org/t/get-clangd-to-find-standard-headers-in-nix-shell/11268/6

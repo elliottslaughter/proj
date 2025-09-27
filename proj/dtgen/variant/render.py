@@ -85,6 +85,7 @@ def infer_header_includes(spec: VariantSpec) -> Sequence[IncludeSpec]:
                 IncludeSpec(path="stdexcept", system=True),
                 IncludeSpec(path="optional", system=True),
                 IncludeSpec(path="fmt/format.h", system=True),
+                IncludeSpec(path="libassert/assert.hpp", system=True),
                 *header_includes_for_features(spec=spec),
             ]
         )
@@ -215,6 +216,8 @@ def render_require_method_impls(spec: VariantSpec, f: TextIO) -> None:
                 f=f,
             ):
                 with sline(f=f):
+                    f.write(f"ASSERT(std::holds_alternative<{value.type_}>(this->raw_variant))");
+                with sline(f=f):
                     f.write(f"return std::get<{value.type_}>(this->raw_variant)")
 
 
@@ -289,7 +292,10 @@ def render_get_method(spec: VariantSpec, is_const: bool, f: TextIO) -> None:
             message=f"{spec.name}::get() expected one of [{type_list}], received {typevar}",
             f=f,
         )
-        f.write(f"return std::get<{typevar}>(this->raw_variant);")
+        with sline(f):
+            f.write(f"ASSERT(std::holds_alternative<{typevar}>(this->raw_variant))")
+        with sline(f):
+            f.write(f"return std::get<{typevar}>(this->raw_variant)")
 
 
 def render_binop_decl(spec: VariantSpec, op: str, f: TextIO) -> None:

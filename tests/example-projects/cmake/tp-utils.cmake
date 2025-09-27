@@ -120,6 +120,7 @@ function(tp_add_test_executable)
     ${TP_TEST_EXEC_DEPS}
     ${TP_TEST_EXEC_NAME}
     doctest
+    libassert
     )
 
   target_include_directories(
