@@ -215,8 +215,10 @@ def render_require_method_impls(spec: VariantSpec, f: TextIO) -> None:
                 is_const=True,
                 f=f,
             ):
-                with sline(f=f):
-                    f.write(f"ASSERT(std::holds_alternative<{value.type_}>(this->raw_variant))");
+                with sline(f):
+                    f.write(f"bool holds_expected = std::holds_alternative<{value.type_}>(this->raw_variant)")
+                with sline(f):
+                    f.write(f"ASSERT(holds_expected, \"Expected {value.type_}\")")
                 with sline(f=f):
                     f.write(f"return std::get<{value.type_}>(this->raw_variant)")
 
@@ -293,7 +295,9 @@ def render_get_method(spec: VariantSpec, is_const: bool, f: TextIO) -> None:
             f=f,
         )
         with sline(f):
-            f.write(f"ASSERT(std::holds_alternative<{typevar}>(this->raw_variant))")
+            f.write(f"bool holds_expected = std::holds_alternative<{typevar}>(this->raw_variant)")
+        with sline(f):
+            f.write(f"ASSERT(holds_expected)")
         with sline(f):
             f.write(f"return std::get<{typevar}>(this->raw_variant)")
 
