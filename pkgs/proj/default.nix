@@ -19,6 +19,7 @@
 , mypy
 , doctest
 , gbenchmark
+, libassert
 , rapidcheckFull
 , nlohmann_json
 , fmt
@@ -77,6 +78,7 @@ buildPythonApplication {
     doctest
     gbenchmark
     rapidcheckFull
+    libassert
     nlohmann_json
     fmt
   ];

@@ -24,6 +24,7 @@
           inherit ff-clang-format;
           inherit rapidcheckFull;
           inherit doctest;
+          inherit libassert;
 
           # for perf the kernel version doesn't matter as it's entirely in perl
           # see https://discourse.nixos.org/t/which-perf-package/22399
