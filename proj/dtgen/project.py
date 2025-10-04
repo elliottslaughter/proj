@@ -1,8 +1,8 @@
 from proj.config_file import (
     ProjectConfig,
     gen_ifndef_uid,
-    get_include_path,
-    get_source_path,
+    get_generated_source_path,
+    get_generated_include_path,
 )
 from proj.format import run_formatter
 from os import PathLike
@@ -12,8 +12,6 @@ from typing import (
     Iterator,
     Optional,
     Union,
-    Any,
-    Mapping,
 )
 from pathlib import Path
 from .struct.render import (
@@ -231,8 +229,8 @@ def generate_files(
     header_path = root / spec_path.with_suffix("").with_suffix(
         ".dtg" + config.header_extension
     )
-    source_path = root / get_source_path(header_path)
-    include_path = get_include_path(header_path)
+    source_path = root / get_generated_source_path(header_path)
+    include_path = get_generated_include_path(header_path)
 
     if generate_header(
         spec=spec, spec_path=spec_path, root=root, out=header_path, force=force

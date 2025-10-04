@@ -37,6 +37,7 @@ from .targets import (
 import logging
 from .utils import (
     map_optional,
+    num_true,
 )
 from .json import (
     Json,
@@ -689,6 +690,8 @@ def with_project_specific_extension_removed(p: Path, config: ProjectConfig) -> P
         ".struct.toml",
         ".variant.toml",
         ".enum.toml",
+        ".dtg" + config.header_extension,
+        ".dtg.cc",
         ".test.cc",
         ".cc",
         ".cu",
@@ -720,36 +723,48 @@ class HeaderInfo:
 @dataclass(frozen=True, order=True)
 class PathInfo:
     include: Path
+    generated_include: Path
     public_header: HeaderInfo
     private_header: HeaderInfo
+    generated_header: Optional[Path]
+    generated_source: Path
     header: Optional[Path]
     source: Path
     test_source: Optional[Path]
     benchmark_source: Optional[Path]
+    toml_path: Optional[Path]
 
     def json(self) -> Json:
         return {
             "include": str(self.include),
+            "generated_include": str(self.generated_include),
             "public_header": self.public_header.json(),
             "private_header": self.private_header.json(),
             "header": map_optional(self.header, str),
+            "generated_header": map_optional(self.generated_header, str),
             "source": str(self.source),
+            "generated_source": str(self.generated_source),
             "test_source": map_optional(self.test_source, str),
             "benchmark_source": map_optional(self.benchmark_source, str),
+            "toml_path": map_optional(self.toml_path, str),
         }
 
 
 def get_path_info(p: Path) -> PathInfo:
-    public_header_info = get_public_header_info(p)
+    public_header_info = get_nongenerated_public_header_info(p)
     private_header_info = get_private_header_info(p)
     return PathInfo(
-        include=get_include_path(p),
+        include=get_nongenerated_include_path(p),
+        generated_include=get_generated_include_path(p),
         public_header=public_header_info,
         private_header=private_header_info,
-        header=try_get_header_path(p),
-        source=get_source_path(p),
+        generated_header=try_get_generated_header_path(p),
+        header=try_get_nongenerated_header_path(p),
+        source=get_nongenerated_source_path(p),
+        generated_source=get_generated_source_path(p),
         test_source=get_test_source_path(p),
         benchmark_source=get_benchmark_source_path(p),
+        toml_path=get_toml_path(p),
     )
 
 
@@ -843,8 +858,20 @@ def get_lib_info(p: Path) -> LibInfo:
         benchmark_dir=rel_benchmark_dir,
     )
 
+def get_generated_public_header_path(p: Path) -> Path:
+    config = get_config(p)
 
-def get_public_header_path(p: Path) -> Path:
+    lib_info = get_lib_info(p)
+
+    subrelpath = get_subrelpath(p)
+    subrelpath_with_extension = with_suffix_appended(
+        subrelpath, '.dtg' + config.header_extension
+    )
+
+    return lib_info.include_dir / subrelpath_with_extension
+
+
+def get_nongenerated_public_header_path(p: Path) -> Path:
     config = get_config(p)
 
     lib_info = get_lib_info(p)
@@ -857,13 +884,12 @@ def get_public_header_path(p: Path) -> Path:
     return lib_info.include_dir / subrelpath_with_extension
 
 
-def get_public_header_info(p: Path) -> HeaderInfo:
-    path = get_public_header_path(p)
+def get_nongenerated_public_header_info(p: Path) -> HeaderInfo:
+    path = get_nongenerated_public_header_path(p)
     return HeaderInfo(
         path=path,
         ifndef=gen_ifndef_uid(path),
     )
-
 
 def get_private_header_path(p: Path) -> Path:
     config = get_config(p)
@@ -886,14 +912,14 @@ def get_private_header_info(p: Path) -> HeaderInfo:
     )
 
 
-def try_get_header_path(p: Path) -> Optional[Path]:
+def try_get_nongenerated_header_path(p: Path) -> Optional[Path]:
     try:
-        return get_header_path(p)
+        return get_nongenerated_header_path(p)
     except RuntimeError:
         return None
 
 
-def get_header_path(p: Path) -> Path:
+def get_nongenerated_header_path(p: Path) -> Path:
     config = get_config(p)
 
     lib_info = get_lib_info(p)
@@ -913,19 +939,72 @@ def get_header_path(p: Path) -> Path:
         raise RuntimeError([public_include, private_include])
 
 
-def get_include_path(p: Path) -> Path:
+def try_get_generated_header_path(p: Path) -> Optional[Path]:
+    try:
+        return get_generated_header_path(p)
+    except RuntimeError:
+        return None
+
+def get_generated_header_path(p: Path) -> Path:
+    config = get_config(p)
+
     lib_info = get_lib_info(p)
-    header_path = get_public_header_path(p)
+
+    subrelpath = get_subrelpath(p)
+    subrelpath_with_extension = with_suffix_appended(
+        subrelpath, '.dtg' + config.header_extension
+    )
+
+    public_include = lib_info.include_dir / subrelpath_with_extension
+    private_include = lib_info.src_dir / subrelpath_with_extension
+    if public_include.exists():
+        return public_include
+    elif private_include.exists():
+        return private_include
+    else:
+        raise RuntimeError([public_include, private_include])
+
+def get_toml_path(p: Path) -> Optional[Path]:
+    public_header_path = get_nongenerated_public_header_path(p)
+
+    struct_toml_path = with_suffixes(public_header_path, '.struct.toml')
+    variant_toml_path = with_suffixes(public_header_path, '.variant.toml')
+    enum_toml_path = with_suffixes(public_header_path, '.enum.toml')
+
+    struct_toml_exists = struct_toml_path.is_file()
+    variant_toml_exists = variant_toml_path.is_file()
+    enum_toml_exists = enum_toml_path.is_file()
+
+    assert num_true([struct_toml_exists, variant_toml_exists, enum_toml_exists]) <= 1
+
+    if struct_toml_exists:
+        return struct_toml_path
+    elif variant_toml_exists:
+        return variant_toml_path
+    elif enum_toml_exists:
+        return enum_toml_path
+    else:
+        return None
+
+def get_generated_include_path(p: Path) -> Path:
+    lib_info = get_lib_info(p)
+    header_path = get_generated_public_header_path(p)
     return header_path.relative_to(lib_info.include_dir)
 
-
-def get_source_path(p: Path) -> Path:
-    p = Path(p).absolute()
-
+def get_nongenerated_include_path(p: Path) -> Path:
     lib_info = get_lib_info(p)
+    header_path = get_nongenerated_public_header_path(p)
+    return header_path.relative_to(lib_info.include_dir)
 
+def get_generated_source_path(p: Path) -> Path:
+    p = Path(p).absolute()
+    lib_info = get_lib_info(p)
+    return lib_info.src_dir / with_suffix_appended(get_subrelpath(p), ".dtg.cc")
+
+def get_nongenerated_source_path(p: Path) -> Path:
+    p = Path(p).absolute()
+    lib_info = get_lib_info(p)
     return lib_info.src_dir / with_suffix_appended(get_subrelpath(p), ".cc")
-
 
 def get_test_source_path(p: Path) -> Optional[Path]:
     p = Path(p).absolute()

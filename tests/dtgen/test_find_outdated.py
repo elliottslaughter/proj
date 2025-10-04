@@ -3,7 +3,8 @@ from ..project_utils import (
 )
 from proj.config_file import (
     find_config_root,
-    get_source_path,
+    get_generated_source_path,
+    get_nongenerated_source_path,
     get_possible_spec_paths,
 )
 from proj.dtgen.find_outdated import (
@@ -35,10 +36,15 @@ def test_find_outdated():
         ])
         assert found == correct
 
-def test_get_source_path():
+def test_get_generated_source_path():
     with project_instance('dtgen') as d:
         correct = Path('lib/person/src/person/color.dtg.cc')
-        assert get_source_path(d / 'lib/person/include/person/color.dtg.hh') == correct
+        assert get_generated_source_path(d / 'lib/person/include/person/color.dtg.hh') == correct
+
+def test_get_nongenerated_source_path():
+    with project_instance('dtgen') as d:
+        correct = Path('lib/person/src/person/color.cc')
+        assert get_nongenerated_source_path(d / 'lib/person/include/person/color.dtg.hh') == correct
 
 def test_get_possible_spec_paths():
     with project_instance('dtgen') as d:

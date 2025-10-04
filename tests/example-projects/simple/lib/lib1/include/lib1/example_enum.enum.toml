@@ -1,0 +1,14 @@
+namespace = "FlexFlow"
+name = "ExampleEnum"
+features = []
+
+includes = []
+
+[[values]]
+name = "OPTION_A"
+
+[[values]]
+name = "OPTION_B"
+
+[[values]]
+name = "OPTION_C"

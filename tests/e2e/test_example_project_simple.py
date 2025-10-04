@@ -605,10 +605,14 @@ LIB1_QUERY_JSON_OUTPUT = {
         'ifndef': '_TEST_PROJECT_1_LIB_LIB1_SRC_LIB1_LIB1_H',
     },
     'header': 'lib/lib1/include/lib1/lib1.h',
+    'generated_header': None,
     'source': 'lib/lib1/src/lib1/lib1.cc',
+    'generated_source': 'lib/lib1/src/lib1/lib1.dtg.cc',
     'include': 'lib1/lib1.h',
+    'generated_include': 'lib1/lib1.dtg.h',
     'test_source': 'lib/lib1/test/src/lib1/lib1.cc',
     'benchmark_source': 'lib/lib1/benchmark/src/lib1/lib1.cc',
+    'toml_path': None,
 }
 
 @pytest.mark.e2e
@@ -646,6 +650,129 @@ def test_query_path_for_test_src() -> None:
 
         out = json.loads(result.stdout)
         assert out == LIB1_QUERY_JSON_OUTPUT
+    
+LIB1_TOML_QUERY_JSON_OUTPUT = {
+    'public_header': {
+        'path': 'lib/lib1/include/lib1/example_struct.h',
+        'ifndef': '_TEST_PROJECT_1_LIB_LIB1_INCLUDE_LIB1_EXAMPLE_STRUCT_H',
+    },
+    'private_header': {
+        'path': 'lib/lib1/src/lib1/example_struct.h',
+        'ifndef': '_TEST_PROJECT_1_LIB_LIB1_SRC_LIB1_EXAMPLE_STRUCT_H',
+    },
+    'header': None,
+    'generated_header': None,
+    'source': 'lib/lib1/src/lib1/example_struct.cc',
+    'generated_source': 'lib/lib1/src/lib1/example_struct.dtg.cc',
+    'include': 'lib1/example_struct.h',
+    'generated_include': 'lib1/example_struct.dtg.h',
+    'test_source': 'lib/lib1/test/src/lib1/example_struct.cc',
+    'benchmark_source': 'lib/lib1/benchmark/src/lib1/example_struct.cc',
+    'toml_path': 'lib/lib1/include/lib1/example_struct.struct.toml',
+}
+
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_query_path_for_test_toml() -> None:
+    with project_instance() as d:
+        result = require_successful(run(d, [
+            'query-path',
+            './lib/lib1/include/lib1/example_struct.struct.toml',
+        ]))
+
+        out = json.loads(result.stdout)
+
+        assert out == LIB1_TOML_QUERY_JSON_OUTPUT
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_query_path_for_test_toml_generated_header() -> None:
+    with project_instance() as d:
+        result = require_successful(run(d, [
+            'query-path',
+            './lib/lib1/include/lib1/example_struct.dtg.h',
+        ]))
+
+        out = json.loads(result.stdout)
+
+        assert out == LIB1_TOML_QUERY_JSON_OUTPUT
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_query_path_for_test_toml_generated_source() -> None:
+    with project_instance() as d:
+        result = require_successful(run(d, [
+            'query-path',
+            './lib/lib1/src/lib1/example_struct.dtg.cc',
+        ]))
+
+        out = json.loads(result.stdout)
+
+        assert out == LIB1_TOML_QUERY_JSON_OUTPUT
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_query_path_for_test_toml_variant() -> None:
+    with project_instance() as d:
+        result = require_successful(run(d, [
+            'query-path',
+            './lib/lib1/include/lib1/example_variant.h',
+        ]))
+
+        out = json.loads(result.stdout)
+
+        assert out == {
+            'public_header': {
+                'path': 'lib/lib1/include/lib1/example_variant.h',
+                'ifndef': '_TEST_PROJECT_1_LIB_LIB1_INCLUDE_LIB1_EXAMPLE_VARIANT_H',
+            },
+            'private_header': {
+                'path': 'lib/lib1/src/lib1/example_variant.h',
+                'ifndef': '_TEST_PROJECT_1_LIB_LIB1_SRC_LIB1_EXAMPLE_VARIANT_H',
+            },
+            'header': None,
+            'generated_header': None,
+            'source': 'lib/lib1/src/lib1/example_variant.cc',
+            'generated_source': 'lib/lib1/src/lib1/example_variant.dtg.cc',
+            'include': 'lib1/example_variant.h',
+            'generated_include': 'lib1/example_variant.dtg.h',
+            'test_source': 'lib/lib1/test/src/lib1/example_variant.cc',
+            'benchmark_source': 'lib/lib1/benchmark/src/lib1/example_variant.cc',
+            'toml_path': 'lib/lib1/include/lib1/example_variant.variant.toml',
+        }
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_query_path_for_test_toml_enum() -> None:
+    with project_instance() as d:
+        result = require_successful(run(d, [
+            'query-path',
+            './lib/lib1/include/lib1/example_enum.h',
+        ]))
+
+        out = json.loads(result.stdout)
+
+        assert out == {
+            'public_header': {
+                'path': 'lib/lib1/include/lib1/example_enum.h',
+                'ifndef': '_TEST_PROJECT_1_LIB_LIB1_INCLUDE_LIB1_EXAMPLE_ENUM_H',
+            },
+            'private_header': {
+                'path': 'lib/lib1/src/lib1/example_enum.h',
+                'ifndef': '_TEST_PROJECT_1_LIB_LIB1_SRC_LIB1_EXAMPLE_ENUM_H',
+            },
+            'header': None,
+            'generated_header': None,
+            'source': 'lib/lib1/src/lib1/example_enum.cc',
+            'generated_source': 'lib/lib1/src/lib1/example_enum.dtg.cc',
+            'include': 'lib1/example_enum.h',
+            'generated_include': 'lib1/example_enum.dtg.h',
+            'test_source': 'lib/lib1/test/src/lib1/example_enum.cc',
+            'benchmark_source': 'lib/lib1/benchmark/src/lib1/example_enum.cc',
+            'toml_path': 'lib/lib1/include/lib1/example_enum.enum.toml',
+        }
+
 
 @pytest.mark.e2e
 @pytest.mark.slow

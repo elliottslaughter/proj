@@ -1,0 +1,11 @@
+namespace = "FlexFlow"
+name = "VariantStruct"
+features = []
+
+includes = []
+
+[[values]]
+type = "int"
+
+[[values]]
+type = "float"

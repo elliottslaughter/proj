@@ -3,6 +3,8 @@ from proj.config_file import (
     load_parsed_config,
     ConfigKey,
     ProjectConfig,
+    with_suffix_appended,
+    with_suffixes,
 )
 from typing import (
     Dict,
@@ -90,3 +92,25 @@ def test_load_parsed_config_fails_to_load_when_missing_required_field() -> None:
             config_root=CONFIG_ROOT,
             raw=raw,
         )
+
+def test_with_suffix_appended() -> None:
+    assert with_suffix_appended(
+        Path('/hello/world.h'),
+        '.struct.toml',
+    ) == Path('/hello/world.h.struct.toml')
+
+    assert with_suffix_appended(
+        Path('/hello/world.struct.h'),
+        '.yo',
+    ) == Path('/hello/world.struct.h.yo')
+
+def test_with_suffixes() -> None:
+    assert with_suffixes(
+        Path('/hello/world.h'),
+        '.struct.toml',
+    ) == Path('/hello/world.struct.toml')
+
+    assert with_suffixes(
+        Path('/hello/world.struct.h'),
+        '.yo',
+    ) == Path('/hello/world.yo')

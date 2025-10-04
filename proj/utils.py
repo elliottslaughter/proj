@@ -46,3 +46,6 @@ def map_optional(x: Optional[T1], f: Callable[[T1], T2]) -> Optional[T2]:
         return x
     else:
         return f(x)
+
+def num_true(c: Iterable[bool]) -> int:
+    return sum(int(b) for b in c)
