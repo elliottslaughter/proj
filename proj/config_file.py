@@ -49,6 +49,15 @@ from .json import (
 from enum import (
     StrEnum,
 )
+from .path_tree import (
+    RelativePathTree,
+)
+from pathlib import (
+    PurePath,
+)
+from .path_info import (
+    HeaderInfo,
+)
 
 _l = logging.getLogger(__name__)
 
@@ -508,6 +517,13 @@ def load_cmake_flags(x: object) -> Optional[Map[str, str]]:
     return map_optional(x, lambda y: require_dict_of(y, require_str, require_str))
 
 
+def load_path_tree(d: Path) -> Optional[RelativePathTree]:
+    config_root = find_config_root(d)
+    if config_root is None:
+        return None
+
+    return RelativePathTree.from_fs(config_root)
+
 def _load_config(d: Path) -> Optional[ProjectConfig]:
     config_root = find_config_root(d)
     if config_root is None:
@@ -534,7 +550,6 @@ class ConfigKey(StrEnum):
     FIX_COMPILE_COMMANDS = "fix_compile_commands"
     TEST_HEADER_PATH = "test_header_path"
     CUDA_LAUNCH_CMD = "cuda_launch_cmd"
-
 
 def load_parsed_config(config_root: Path, raw: object) -> ProjectConfig:
     _l.debug("Loading parsed config: %s", raw)
@@ -648,16 +663,15 @@ def with_suffix_removed(p: Path) -> Path:
     return p.with_suffix("")
 
 
-def get_sublib_root(p: Path) -> Optional[Path]:
-    p = Path(p).resolve()
+def get_sublib_root(root_path_tree: RelativePathTree, p: PurePath) -> Optional[PurePath]:
     assert p.is_absolute()
 
     while True:
         src_dir = p / "src"
         include_dir = p / "include"
 
-        src_exists = src_dir.is_dir()
-        include_exists = include_dir.is_dir()
+        src_exists = root_path_tree.is_dir(src_dir)
+        include_exists = include_dir.is_dir(include_dir)
 
         _l.debug(
             "get_sublib_root checking %s for %s is dir (%s) and %s is dir (%s)",
@@ -706,66 +720,6 @@ def with_project_specific_extension_removed(p: Path, config: ProjectConfig) -> P
             return with_suffixes(p, suffixes[: -len(extension)])
 
     raise ValueError(f"Could not find project-specific extension for path {p}")
-
-
-@dataclass(frozen=True, order=True)
-class HeaderInfo:
-    path: Path
-    ifndef: str
-
-    def json(self) -> Json:
-        return {
-            "path": str(self.path),
-            "ifndef": self.ifndef,
-        }
-
-
-@dataclass(frozen=True, order=True)
-class PathInfo:
-    include: Path
-    generated_include: Path
-    public_header: HeaderInfo
-    private_header: HeaderInfo
-    generated_header: Optional[Path]
-    generated_source: Path
-    header: Optional[Path]
-    source: Path
-    test_source: Optional[Path]
-    benchmark_source: Optional[Path]
-    toml_path: Optional[Path]
-
-    def json(self) -> Json:
-        return {
-            "include": str(self.include),
-            "generated_include": str(self.generated_include),
-            "public_header": self.public_header.json(),
-            "private_header": self.private_header.json(),
-            "header": map_optional(self.header, str),
-            "generated_header": map_optional(self.generated_header, str),
-            "source": str(self.source),
-            "generated_source": str(self.generated_source),
-            "test_source": map_optional(self.test_source, str),
-            "benchmark_source": map_optional(self.benchmark_source, str),
-            "toml_path": map_optional(self.toml_path, str),
-        }
-
-
-def get_path_info(p: Path) -> PathInfo:
-    public_header_info = get_nongenerated_public_header_info(p)
-    private_header_info = get_private_header_info(p)
-    return PathInfo(
-        include=get_nongenerated_include_path(p),
-        generated_include=get_generated_include_path(p),
-        public_header=public_header_info,
-        private_header=private_header_info,
-        generated_header=try_get_generated_header_path(p),
-        header=try_get_nongenerated_header_path(p),
-        source=get_nongenerated_source_path(p),
-        generated_source=get_generated_source_path(p),
-        test_source=get_test_source_path(p),
-        benchmark_source=get_benchmark_source_path(p),
-        toml_path=get_toml_path(p),
-    )
 
 
 def get_subrelpath(p: Path, config: Optional[ProjectConfig] = None) -> Path:

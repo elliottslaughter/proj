@@ -21,8 +21,10 @@ from .config_file import (
     get_config,
     get_config_root,
     dump_config,
-    get_path_info,
     resolve_test_target,
+)
+from .path_info import (
+    get_path_info,
 )
 from .dtgen import run_dtgen
 from .format import run_formatter
@@ -93,6 +95,9 @@ from .utils import (
 import json
 from .target_resolution import (
     fully_resolve_run_target,
+)
+from .move import (
+    execute_move,
 )
 
 _l = logging.getLogger(name="proj")
@@ -592,7 +597,6 @@ class MainCheckArgs:
     check: Check
     verbosity: int
 
-
 def main_check(args: MainCheckArgs) -> int:
     config = get_config(args.path)
 
@@ -600,6 +604,27 @@ def main_check(args: MainCheckArgs) -> int:
 
     return STATUS_OK
 
+@dataclass(frozen=True)
+class MainMoveArgs:
+    path: Path
+    src: Path
+    dst: Path
+    verbosity: int
+
+
+def main_move(args: MainMoveArgs) -> int:
+    root = get_config_root(args.path)
+    config = get_config(args.path)
+
+    assert args.src.is_file()
+    assert not args.dst.exists()
+    execute_move(
+        config=config,
+        src=args.src,
+        dst=args.dst,
+    )
+
+    return STATUS_OK
 
 @dataclass(frozen=True)
 class MainLintArgs:
@@ -840,6 +865,11 @@ def make_parser() -> argparse.ArgumentParser:
     set_main_signature(check_p, main_check, MainCheckArgs)
     check_p.add_argument("check", choices=list(sorted(Check)))
     add_verbosity_args(check_p)
+
+    move_p = subparsers.add_parser("move")
+    set_main_signature(move_p, main_move, MainMoveArgs)
+    move_p.add_argument("src", type=Path)
+    move_p.add_argument("dst", type=Path)
 
     lint_p = subparsers.add_parser("lint")
     set_main_signature(lint_p, main_lint, MainLintArgs)

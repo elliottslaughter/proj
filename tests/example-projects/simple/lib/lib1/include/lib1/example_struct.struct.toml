@@ -2,6 +2,8 @@ namespace = "FlexFlow"
 name = "ExampleStruct"
 features = []
 
+includes = []
+
 [[fields]]
 name = "my_field"
 type = "int"
