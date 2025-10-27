@@ -17,6 +17,7 @@ _l = logging.getLogger(__name__)
 
 
 def build_targets(
+    repo: Repo,
     config: ProjectConfig,
     targets: Iterable[BuildTarget],
     dtgen_skip: bool,
@@ -31,6 +32,8 @@ def build_targets(
 
     if not dtgen_skip:
         run_dtgen(
+            repo=repo,
+            config=config,
             root=config.base,
             config=config,
             force=False,

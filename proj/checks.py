@@ -41,7 +41,11 @@ class Check(StrEnum):
     FORMAT = "format"
     CPU_CI = "cpu-ci"
     GPU_CI = "gpu-ci"
+    LAYOUT = "layout"
 
+def run_layout_check(
+    
+) -> Nohne:
 
 def run_formatter_check(
     config: ProjectConfig, files: Optional[Sequence[PathLike[str]]] = None

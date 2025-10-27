@@ -1,52 +1,57 @@
 from proj.path_tree import (
-    RelativePathTree,
-    AbsolutePathTree,
+    RepoPathTree,
+    EmulatedPathTree,
+    PathTree,
+    PathType,
+)
+from proj.paths import (
+    RepoRelPath,
 )
 from pathlib import (
-    Path,
     PurePath,
 )
-from .project_utils import (
-    TemporaryDirectory,
-)
+# from .project_utils import (
+#     TemporaryDirectory,
+# )
 
-def test_relative_path_tree() -> None:
-    with TemporaryDirectory() as _d:
-        d = Path(_d)
-        (d / 'hello.txt').touch()
-        (d / 'a' / 'b.c').mkdir(parents=True, exist_ok=False)
-        (d / 'a' / 'goodbye.py').touch()
-        
-        tree = RelativePathTree.from_fs(d)
-
-    correct = RelativePathTree({
-        PurePath('.'): False,
-        PurePath('hello.txt'): True,
-        PurePath('a/'): False,
-        PurePath('a/b.c'): False,
-        PurePath('a/goodbye.py'): True,
+def test_emulated_path_tree_restrict_to_subdir():
+    lib_path_tree = EmulatedPathTree.from_map({
+        p: PathType.FILE
+        for p in [
+            'CMakeLists.txt',
+            'include/example/example_variant.variant.toml',
+            'include/example/example_struct.struct.toml',
+            'src/example/example_struct.cc',
+        ]
     })
 
-    assert tree == correct
+    result = lib_path_tree.restrict_to_subdir(PurePath('include/example'))
 
-def test_absolute_path_tree() -> None:
-    with TemporaryDirectory() as _d:
-        d = Path(_d)
-        (d / 'hello.txt').touch()
-        (d / 'a' / 'b.c').mkdir(parents=True, exist_ok=False)
-        (d / 'a' / 'goodbye.py').touch()
-        
-        tree = AbsolutePathTree.from_fs(d)
+    correct = EmulatedPathTree.from_map({
+        p: PathType.FILE
+        for p in [
+            'example_variant.variant.toml',
+            'example_struct.struct.toml',
+        ]
+    })
 
-    correct = AbsolutePathTree(
-        d,
-        RelativePathTree({
-            PurePath('.'): False,
-            PurePath('hello.txt'): True,
-            PurePath('a/'): False,
-            PurePath('a/b.c'): False,
-            PurePath('a/goodbye.py'): True,
-        })
-    )
+    assert result == correct
 
-    assert tree == correct
+# def test_relative_path_tree() -> None:
+#     with TemporaryDirectory() as _d:
+#         d = Path(_d)
+#         (d / 'hello.txt').touch()
+#         (d / 'a' / 'b.c').mkdir(parents=True, exist_ok=False)
+#         (d / 'a' / 'goodbye.py').touch()
+#
+#         tree = RelativePathTree.from_fs(d)
+#
+#     correct = RelativePathTree({
+#         PurePath('.'): False,
+#         PurePath('hello.txt'): True,
+#         PurePath('a/'): False,
+#         PurePath('a/b.c'): False,
+#         PurePath('a/goodbye.py'): True,
+#     })
+#
+#     assert tree == correct

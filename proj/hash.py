@@ -1,11 +1,11 @@
 import hashlib
 from typing import Optional
-from pathlib import Path
+from .paths import AbsolutePath
 
 
-def get_file_hash(path: Path) -> Optional[bytes]:
+def get_file_hash(path: AbsolutePath) -> Optional[bytes]:
     try:
-        with path.open("rb") as f:
+        with path.raw.open("rb") as f:
             digest = hashlib.md5(f.read())
         return digest.digest()
     except FileNotFoundError:

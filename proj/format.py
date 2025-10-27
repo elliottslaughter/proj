@@ -67,7 +67,6 @@ def run_formatter_check(
         files=files,
     )
 
-
 def run_formatter(
     config: ProjectConfig, files: Optional[Sequence[PathLike[str]]] = None
 ) -> None:

@@ -613,7 +613,6 @@ class MainMoveArgs:
 
 
 def main_move(args: MainMoveArgs) -> int:
-    root = get_config_root(args.path)
     config = get_config(args.path)
 
     assert args.src.is_file()
@@ -675,7 +674,7 @@ class MainDtgenArgs:
 
 
 def main_dtgen(args: MainDtgenArgs) -> int:
-    root = get_config_root(args.path)
+    repo = get_config_root(args.path)
     config = get_config(args.path)
     if len(args.files) == 0:
         files = None
@@ -683,11 +682,14 @@ def main_dtgen(args: MainDtgenArgs) -> int:
         for file in args.files:
             assert file.is_file()
         files = list(args.files)
+
     run_dtgen(
-        root=root,
+        repo=repo,
+        repo_path_tree=RepoPathTree.for_repo(repo),
         config=config,
-        files=files,
         force=args.force,
+        ifndef_base=
+        files=files,
         delete_outdated=True,
     )
     return STATUS_OK

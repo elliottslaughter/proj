@@ -1,27 +1,23 @@
 from dataclasses import dataclass
-from pathlib import Path
-from enum import Enum, auto
-from .utils import (
-    map_optional,
+from pathlib import (
+    Path,
+    PurePath,
 )
-from typing import (
-    Optional,
-)
-# from .config_file import (
-#     get_nongenerated_public_header_info,
-#     get_private_header_info,
-#     get_nongenerated_include_path,
-#     get_generated_include_path,
-#     try_get_generated_header_path,
-#     try_get_nongenerated_header_path,
-#     get_nongenerated_source_path,
-#     get_test_source_path,
-#     get_benchmark_source_path,
-#     get_toml_path,
-#     get_generated_source_path,
-# )
 from .json import (
     Json,
+)
+from .paths import (
+    File,
+    FileGroup,
+    Library,
+    PathRole,
+    LibraryRelPath,
+    RepoRelPath,
+    ExtensionConfig,
+)
+from typing import (
+    Tuple,
+    Optional,
 )
 
 @dataclass(frozen=True, order=True)
@@ -35,91 +31,96 @@ class HeaderInfo:
             "ifndef": self.ifndef,
         }
 
-class PathRole(Enum):
-    PUBLIC_HEADER = auto()
-    PRIVATE_HEADER = auto()
-    SOURCE = auto()
-    TEST = auto()
-    BENCHMARK = auto()
-    TOML = auto()
-
 @dataclass(frozen=True, order=True)
 class PathInfo:
-    include: Path
     generated_include: Path
     public_header: HeaderInfo
-    private_header: HeaderInfo
-    generated_header: Optional[Path]
+    generated_header: Path
     generated_source: Path
-    header: Optional[Path]
+    header: Path
     source: Path
-    test_source: Optional[Path]
-    benchmark_source: Optional[Path]
-    toml_path: Optional[Path]
+    test_source: Path
+    benchmark_source: Path
+    toml_path: Path
 
     def json(self) -> Json:
         return {
-            "include": str(self.include),
             "generated_include": str(self.generated_include),
             "public_header": self.public_header.json(),
-            "private_header": self.private_header.json(),
-            "header": map_optional(self.header, str),
-            "generated_header": map_optional(self.generated_header, str),
+            "generated_header": str(self.generated_header),
             "source": str(self.source),
             "generated_source": str(self.generated_source),
-            "test_source": map_optional(self.test_source, str),
-            "benchmark_source": map_optional(self.benchmark_source, str),
-            "toml_path": map_optional(self.toml_path, str),
+            "test_source": str(self.test_source),
+            "benchmark_source": str(self.benchmark_source),
+            "toml_path": str(self.toml_path),
         }
 
-    def path_for_role(self, role: PathRole) -> Optional[Path]:
-        if role == PathRole.PUBLIC_HEADER:
-            return self.public_header.path
-        elif role == PathRole.PRIVATE_HEADER:
-            return self.private_header.path
-        elif role == PathRole.SOURCE:
-            return self.source
-        elif role == PathRole.TEST:
-            return self.test_source
-        elif role == PathRole.BENCHMARK:
-            return self.benchmark_source
-        elif role == PathRole.TOML:
-            return self.toml_path
+def get_library_for_path(path: RepoRelPath) -> Tuple[Library, LibraryRelPath]:
+    assert path.raw.parts[0] == 'lib'
+    library = Library(path.raw.parts[1])
+    library_path = PurePath('lib') / library.name
+    library_rel_path = LibraryRelPath(path.raw.relative_to(library_path))
+    return (library, library_rel_path)
+
+def get_library_and_file_for_path(path: RepoRelPath, extension_config: ExtensionConfig) -> Tuple[Library, File]:
+    library, lib_rel_path = get_library_for_path(path)
+    file = get_file_for_path(library, lib_rel_path, extension_config)
+    return (library, file)
+
+def get_file_for_path(library: Library, library_path: LibraryRelPath, extension_config: ExtensionConfig) -> Optional[File]:
+    p = library_path.raw
+
+    header_extension = extension_config.header_extension
+
+    public_include_dir = PurePath('include') / library.name
+    src_dir = PurePath('src') / library.name
+    test_dir = PurePath('test/src') / library.name
+    benchmark_dir = PurePath('benchmark/src') / library.name
+
+    file_type: PathRole
+    group: FileGroup
+    if p.is_relative_to(public_include_dir) and p.suffix == '.toml':
+        pp = p.parent / p.stem
+        if pp.suffix == '.struct':
+            file_type = PathRole.STRUCT_TOML
+        elif pp.suffix == '.variant':
+            file_type = PathRole.VARIANT_TOML
+        elif pp.suffix == '.enum':
+            file_type = PathRole.ENUM_TOML
         else:
-            raise ValueError(f'Unknown PathRole {role!r}')
+            return None
 
+        group = FileGroup(p.parent.relative_to(public_include_dir) / pp.stem)
+    elif p.is_relative_to(public_include_dir) and p.suffix == header_extension:
+        pp = p.parent / p.stem
+        if pp.suffix == '.dtg':
+            file_type = PathRole.GENERATED_HEADER
+            group = FileGroup(p.parent.relative_to(public_include_dir) / pp.stem)
+        else:
+            file_type = PathRole.PUBLIC_HEADER
+            group = FileGroup(p.parent.relative_to(public_include_dir) / p.stem)
 
-def get_path_role(path_info: PathInfo, p: Path) -> PathRole:
-    if p == path_info.public_header.path:
-        return PathRole.PUBLIC_HEADER
-    elif p == path_info.private_header.path:
-        return PathRole.PRIVATE_HEADER
-    elif p == path_info.source:
-        return PathRole.SOURCE
-    elif path_info.test_source is not None and p == path_info.test_source:
-        return PathRole.TEST
-    elif path_info.benchmark_source is not None and p == path_info.benchmark_source:
-        return PathRole.BENCHMARK
-    elif path_info.toml_path is not None and p == path_info.toml_path:
-        return PathRole.TOML
+    elif p.is_relative_to(src_dir):
+        pp = p.parent / p.stem
+        if pp.suffix == '.dtg':
+            file_type = PathRole.GENERATED_SOURCE
+        else:
+            file_type = PathRole.SOURCE
+        group = FileGroup(p.parent.relative_to(src_dir) / p.stem)
+    elif p.is_relative_to(test_dir):
+        group=FileGroup(p.parent.relative_to(test_dir) / p.stem)
+        file_type=PathRole.TEST
+    elif p.is_relative_to(benchmark_dir):
+        group=FileGroup(p.parent.relative_to(benchmark_dir) / p.stem)
+        file_type=PathRole.BENCHMARK
     else:
-        raise ValueError(f'Could not find role for path {p!r}')
+        return None
 
-def get_path_info(p: Path) -> PathInfo:
-    assert False
-#     public_header_info = get_nongenerated_public_header_info(p)
-#     private_header_info = get_private_header_info(p)
-#     return PathInfo(
-#         include=get_nongenerated_include_path(p),
-#         generated_include=get_generated_include_path(p),
-#         public_header=public_header_info,
-#         private_header=private_header_info,
-#         generated_header=try_get_generated_header_path(p),
-#         header=try_get_nongenerated_header_path(p),
-#         source=get_nongenerated_source_path(p),
-#         generated_source=get_generated_source_path(p),
-#         test_source=get_test_source_path(p),
-#         benchmark_source=get_benchmark_source_path(p),
-#         toml_path=get_toml_path(p),
-#     )
-#
+    return File(
+        group=group,
+        file_type=file_type,
+    )
+
+
+def get_file_group_for_path(library: Library, library_path: LibraryRelPath, extension_config: ExtensionConfig) -> FileGroup:
+    return get_file_for_path(library, library_path, extension_config).group

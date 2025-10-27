@@ -16,36 +16,42 @@ from typing import (
 )
 import subprocess
 from .config_file import ProjectConfig
+from .paths import (
+    RepoRelPath,
+    ExtensionConfig,
+)
+from .path_tree import (
+    RepoPathTree,
+)
 
 _l = logging.getLogger(__name__)
 
 
-def find_files(root: Path, config: ProjectConfig) -> Iterator[Path]:
-    # patterns = [f'*{config.header_extension}', '*.cc', '*.cpp', '*.cu', '*.c', '*.decl']
-    patterns = ["*.cc", "*.cpp", "*.cu", "*.c"]
+def find_repo_files_for_linter(repo_path_tree: RepoPathTree, extension_config: ExtensionConfig) -> Iterator[RepoRelPath]:
+    extensions = [extension_config.src_extension, ".cpp", ".cu", ".c"]
     blacklist = [
-        root / "lib" / "runtime",
-        root / "lib" / "kernels",
+        RepoRelPath("lib") / "runtime",
+        RepoRelPath("lib") / "kernels",
     ]
     whitelist = [
-        root / "lib",
+        RepoRelPath("lib"),
     ]
 
-    def is_blacklisted(p: Path) -> bool:
+    def is_blacklisted(p: RepoRelPath) -> bool:
         if not any(p.is_relative_to(whitelisted) for whitelisted in whitelist):
             return True
         if any(p.is_relative_to(blacklisted) for blacklisted in blacklist):
             return True
         if any(
-            parent.name == "test" for parent in p.parents if parent.is_relative_to(root)
+            parent.name == "test" for parent in p.parents
         ):
             return True
         if ".dtg" in p.suffixes:
             return True
         return False
 
-    for pattern in patterns:
-        for found in root.rglob(pattern):
+    for extension in extensions:
+        for found in repo_path_tree.with_extension(extension):
             if not is_blacklisted(found):
                 yield found
 
