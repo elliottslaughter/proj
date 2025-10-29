@@ -5,8 +5,10 @@ from typing import (
     Collection,
     FrozenSet,
     Iterable,
+    Iterator,
 )
 from functools import reduce
+from pathlib import PurePath
 
 T = TypeVar("T")
 T1 = TypeVar("T1")
@@ -46,6 +48,20 @@ def map_optional(x: Optional[T1], f: Callable[[T1], T2]) -> Optional[T2]:
         return x
     else:
         return f(x)
+
+def common_ancestors(lhs: PurePath, rhs: PurePath) -> Iterator[PurePath]:
+    for l, r in zip(lhs.parents[::-1], rhs.parents[::-1]):
+        if l == r:
+            yield l
+        else:
+            break
+
+def nearest_common_ancestor(lhs: PurePath, rhs: PurePath) -> PurePath:
+    for anc in common_ancestors(lhs, rhs):
+        pass
+    assert isinstance(anc, PurePath)
+    return anc
+
 
 def num_true(c: Iterable[bool]) -> int:
     return sum(int(b) for b in c)

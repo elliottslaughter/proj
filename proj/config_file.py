@@ -4,14 +4,12 @@ from typing import (
     Optional,
     Mapping,
     Tuple,
-    Iterator,
     Union,
     FrozenSet,
 )
 from immutables import Map
 import string
 import re
-import io
 import proj.toml as toml
 from .targets import (
     BuildTarget,
@@ -48,17 +46,22 @@ from .json import (
 from enum import (
     StrEnum,
 )
-from .path_tree import (
-    PathTree,
-    RepoPathTree,
-)
 from .paths import (
     Repo,
     RepoRelPath,
-    ExtensionConfig,
 )
+from .trees import FileTree
 
 _l = logging.getLogger(__name__)
+
+@dataclass(frozen=True)
+class ExtensionConfig:
+    header_extension: str
+    src_extension: str
+
+    def __post_init__(self) -> None:
+        assert self.header_extension.startswith('.')
+        assert self.src_extension.startswith('.')
 
 
 @dataclass(frozen=True, order=True)
@@ -104,6 +107,10 @@ class ProjectConfig:
     _fix_compile_commands: Optional[bool] = None
     _test_header_path: Optional[Path] = None
     _cuda_launch_cmd: Optional[Tuple[str, ...]] = None
+
+    @property
+    def repo(self) -> Repo:
+        return Repo(self.base)
 
     @property
     def debug_build_dir(self) -> Path:
@@ -391,21 +398,10 @@ class ProjectConfig:
         return cmd
 
 
-def _possible_config_paths(d: Path) -> Iterator[Path]:
-    d = Path(d).resolve()
-    assert d.is_absolute()
-
-    for _d in [d, *d.parents]:
-        config_path = _d / ".proj.toml"
-        yield config_path
-
-
-def find_config_root(d: Path) -> Optional[Repo]:
-    for possible_config in _possible_config_paths(d):
-        if possible_config.is_file():
-            return Repo(possible_config.parent)
-
-    return None
+def load_repo_config(repo: Repo, file_tree: FileTree) -> ProjectConfig:
+    contents = file_tree.get_file_contents(repo.path / ".proj.toml")
+    raw = toml.loads(contents)
+    return load_parsed_config(repo, raw)
 
 
 def _load_target_config(m: Mapping[str, object]) -> Union[LibConfig, BinConfig]:
@@ -523,22 +519,11 @@ def load_cmake_flags(x: object) -> Optional[Map[str, str]]:
     return map_optional(x, lambda y: require_dict_of(y, require_str, require_str))
 
 
-def load_repo_path_tree(d: Path) -> Optional[RepoPathTree]:
-    config_root = find_config_root(d)
-    if config_root is None:
-        return None
-
-    return RepoPathTree(PathTree.from_fs(config_root))
-
-def _load_config(d: Path) -> Optional[ProjectConfig]:
-    config_root = find_config_root(d)
-    if config_root is None:
-        return None
-
-    with (config_root / ".proj.toml").open("r") as f:
+def _load_config(repo: Repo) -> Optional[ProjectConfig]:
+    with (Path(repo.path) / ".proj.toml").open("r") as f:
         raw = toml.loads(f.read())
 
-    return load_parsed_config(config_root, raw)
+    return load_parsed_config(repo, raw)
 
 
 class ConfigKey(StrEnum):
@@ -557,7 +542,7 @@ class ConfigKey(StrEnum):
     TEST_HEADER_PATH = "test_header_path"
     CUDA_LAUNCH_CMD = "cuda_launch_cmd"
 
-def load_parsed_config(config_root: Path, raw: object) -> ProjectConfig:
+def load_parsed_config(repo: Repo, raw: object) -> ProjectConfig:
     _l.debug("Loading parsed config: %s", raw)
     assert isinstance(raw, dict)
 
@@ -566,7 +551,7 @@ def load_parsed_config(config_root: Path, raw: object) -> ProjectConfig:
 
     return ProjectConfig(
         project_name=require_str(raw[ConfigKey.PROJECT_NAME]),
-        base=config_root,
+        base=Path(repo.path),
         _targets=_load_targets(raw[ConfigKey.TARGETS]),
         _default_build_targets=load_str_tuple(raw.get(ConfigKey.DEFAULT_BIN_TARGETS)),
         _default_test_targets=load_str_tuple(raw.get(ConfigKey.DEFAULT_TEST_TARGETS)),
@@ -591,61 +576,12 @@ def load_parsed_config(config_root: Path, raw: object) -> ProjectConfig:
     )
 
 
-def get_config_root(d: Path) -> Repo:
-    config_root = find_config_root(d)
-
-    if config_root is None:
-        s = io.StringIO()
-        s.write("Could not find config file at any of the following paths:\n")
-        for searched_path in _possible_config_paths(d):
-            s.write(f"- {searched_path}\n")
-
-        raise FileNotFoundError(s.getvalue())
-    else:
-        return config_root
-
-
-def load_config(repo: Repo) -> ProjectConfig:
-    config = _load_config(Path(repo.raw))
-
-    if config is None:
-        s = io.StringIO()
-        s.write("Could not find config file at any of the following paths:\n")
-        for searched_path in _possible_config_paths(Path(repo.raw)):
-            s.write(f"- {searched_path}\n")
-
-        raise FileNotFoundError(s.getvalue())
-    else:
-        return config
-
-
-def gen_ifndef_uid(ifndef_name: str, relpath: RepoRelPath) -> str:
-    unfixed = f"_{ifndef_name}_" + str(relpath)
-    return re.sub(r"[^a-zA-Z0-9_]", "_", unfixed).upper()
-
-def try_get_config(p: Union[Path, str]) -> Optional[ProjectConfig]:
-    try:
-        return get_config(p)
-    except FileNotFoundError:
-        return None
-
-
-def get_config(p: Union[Path, str]) -> ProjectConfig:
-    p = Path(p).absolute()
-    config = load_config(p)
-    return config
-
-
-def get_lib_root(p: Path) -> Path:
-    config_root = find_config_root(p)
-    assert config_root is not None
-    return config_root / "lib"
-
-
-def get_test_header_path(p: Path) -> Path:
-    config = load_config(p)
-    return config.test_header_path
-
+# def try_get_config(p: Union[Path, str]) -> Optional[ProjectConfig]:
+#     try:
+#         return get_config(p)
+#     except FileNotFoundError:
+#         return None
+#
 
 def with_suffixes(p: Path, suffs: str) -> Path:
     name = p.name
@@ -662,6 +598,9 @@ def with_suffix_appended(p: Path, suff: str) -> Path:
 def with_suffix_removed(p: Path) -> Path:
     return p.with_suffix("")
 
+def get_ifndef_for_path(ifndef_base: str, repo_rel: RepoRelPath) -> str:
+    unfixed = f"_{ifndef_base}_" + str(repo_rel.path)
+    return re.sub(r"[^a-zA-Z0-9_]", "_", unfixed).upper()
 
 # def get_possible_spec_paths(p: Path) -> Iterator[Path]:
 #     p = Path(p).absolute()

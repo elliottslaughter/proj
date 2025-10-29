@@ -10,6 +10,7 @@ from enum import (
 )
 from .config_file import (
     ProjectConfig,
+    ExtensionConfig,
 )
 from .format import (
     run_formatter_check as _run_formatter_check,
@@ -33,6 +34,12 @@ from .failure import (
     fail_with_error,
 )
 from . import subprocess_trace as subprocess
+from .layout import (
+    run_layout_check as _run_layout_check,
+    UnrecognizedFile,
+    IncompleteGroup,
+)
+from .trees import PathTree
 
 _l = logging.getLogger(__name__)
 
@@ -44,8 +51,14 @@ class Check(StrEnum):
     LAYOUT = "layout"
 
 def run_layout_check(
-    
-) -> Nohne:
+    repo_path_tree: PathTree,
+    extension_config: ExtensionConfig,
+) -> None:
+    for error in _run_layout_check(repo_path_tree, extension_config):
+        if isinstance(error, IncompleteGroup):
+            _l.warn('Incomplete file group %s: missing %s', error.file_group, ', '.join(map(str, (error.missing))))
+        elif isinstance(error, UnrecognizedFile):
+            _l.warn('Unrecognized file at %s', error.path)
 
 def run_formatter_check(
     config: ProjectConfig, files: Optional[Sequence[PathLike[str]]] = None

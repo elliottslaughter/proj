@@ -1,13 +1,12 @@
 from dataclasses import dataclass
-from proj.paths import (
+from .paths import (
     FileGroup,
     File,
-    PathRole,
+    RoleInGroup,
     Library,
-    ExtensionConfig,
     LibraryRelPath,
 )
-from proj.path_tree import PathTree
+from proj.trees import PathTree
 from typing import (
     Dict,
     Tuple,
@@ -20,18 +19,18 @@ from typing import (
 from pathlib import (
     PurePath
 )
-from proj.path_info import (
-    get_file_for_path,
+from .parse_project import (
+    parse_file_path,
 )
 from collections import (
     defaultdict,
 )
+from .config_file import ExtensionConfig
 
 @dataclass(frozen=True)
 class IncompleteGroup:
-    library: Library
     file_group: FileGroup
-    missing: FrozenSet[PathRole]
+    missing: FrozenSet[RoleInGroup]
 
 @dataclass(frozen=True)
 class UnrecognizedFile:
@@ -55,7 +54,7 @@ def scan_library_for_files(
         if p == PurePath('CMakeLists.txt'):
             return KnownFile(p)
 
-        file = get_file_for_path(library, LibraryRelPath(p), extension_config)
+        file = parse_file_path(LibraryRelPath(p, library), extension_config)
         if file is not None:
             return file
         else:
@@ -71,15 +70,15 @@ def scan_repo_for_libraries(
         if path_tree.has_dir(p):
             yield (Library(p.name), path_tree.restrict_to_subdir(p))
 
-def detect_missing_roles(present: Collection[PathRole]) -> Set[PathRole]:
+def detect_missing_roles(present: Collection[RoleInGroup]) -> Set[RoleInGroup]:
     required = {
-        PathRole.PUBLIC_HEADER: {PathRole.SOURCE},
-        PathRole.SOURCE: {PathRole.PUBLIC_HEADER},
-        PathRole.TEST: {PathRole.SOURCE, PathRole.PUBLIC_HEADER},
-        PathRole.BENCHMARK: {PathRole.SOURCE, PathRole.PUBLIC_HEADER},
+        RoleInGroup.PUBLIC_HEADER: {RoleInGroup.SOURCE},
+        RoleInGroup.SOURCE: {RoleInGroup.PUBLIC_HEADER},
+        RoleInGroup.TEST: {RoleInGroup.SOURCE, RoleInGroup.PUBLIC_HEADER},
+        RoleInGroup.BENCHMARK: {RoleInGroup.SOURCE, RoleInGroup.PUBLIC_HEADER},
     }
 
-    necessary: Set[PathRole] = set()
+    necessary: Set[RoleInGroup] = set()
     for role in present:
         if role in required:
             necessary.update(required[role])
@@ -87,7 +86,7 @@ def detect_missing_roles(present: Collection[PathRole]) -> Set[PathRole]:
     return necessary - set(present)
 
 
-def detect_incomplete_groups(m: Mapping[Tuple[Library, FileGroup], Collection[PathRole]]) -> Iterator[IncompleteGroup]:
+def detect_incomplete_groups(m: Mapping[Tuple[Library, FileGroup], Collection[RoleInGroup]]) -> Iterator[IncompleteGroup]:
     for (library, file_group), path_roles in m.items():
         missing_roles = frozenset(detect_missing_roles(path_roles))
         if len(missing_roles) > 0:
@@ -101,11 +100,11 @@ def run_layout_check(
     repo_path_tree: PathTree,
     extension_config: ExtensionConfig,
 ) -> Iterator[IncompleteGroup | UnrecognizedFile]:
-    file_groups: Dict[Tuple[Library, FileGroup], Set[PathRole]] = defaultdict(set)
+    file_groups: Dict[Tuple[Library, FileGroup], Set[RoleInGroup]] = defaultdict(set)
     for library, library_tree in scan_repo_for_libraries(repo_path_tree, extension_config):
         for file_found in scan_library_for_files(library, library_tree, extension_config):
             if isinstance(file_found, UnrecognizedFile):
                 yield file_found
             elif isinstance(file_found, File):
-                file_groups[(library, file_found.group)].add(file_found.file_type)
+                file_groups[(library, file_found.group)].add(file_found.role)
     yield from detect_incomplete_groups(file_groups)

@@ -17,11 +17,10 @@ import os
 import multiprocessing
 import sys
 from .config_file import (
-    try_get_config,
-    get_config,
-    get_config_root,
+    load_repo_config,
     dump_config,
     resolve_test_target,
+    ProjectConfig,
 )
 from .path_info import (
     get_path_info,
@@ -99,6 +98,13 @@ from .target_resolution import (
 from .move import (
     execute_move,
 )
+from .trees import (
+    MutableFileTree,
+    FilesystemFileTree,
+)
+from .parse_project import find_repo
+from .utils import map_optional
+
 
 _l = logging.getLogger(name="proj")
 
@@ -107,6 +113,8 @@ DIR = Path(__file__).resolve().parent
 STATUS_OK = 0
 STATUS_ERR = 1
 
+def load_filesystem() -> MutableFileTree:
+    return FilesystemFileTree(Path('/'))
 
 @dataclass(frozen=True)
 class MainRootArgs:
@@ -115,8 +123,10 @@ class MainRootArgs:
 
 
 def main_root(args: MainRootArgs) -> int:
-    config_root = get_config_root(args.path)
-    print(config_root)
+    fs = load_filesystem()
+    repo = find_repo(args.path, fs)
+    assert repo is not None
+    print(repo.path)
     return STATUS_OK
 
 
@@ -127,7 +137,10 @@ class MainConfigArgs:
 
 
 def main_config(args: MainConfigArgs) -> int:
-    config = get_config(args.path)
+    fs = load_filesystem()
+    repo = find_repo(args.path, fs)
+    assert repo is not None
+    config = load_repo_config(repo, fs)
     json.dump(dump_config(config), sort_keys=True, indent=2, fp=sys.stdout)
     return STATUS_OK
 
@@ -161,6 +174,12 @@ class MainCmakeArgs:
     dtgen_skip: bool
     verbosity: int
 
+
+def get_config(p: Path) -> ProjectConfig:
+    fs = load_filesystem()
+    repo = find_repo(p, fs)
+    config = load_repo_config(repo, fs)
+    return config
 
 def main_cmake(args: MainCmakeArgs) -> int:
     config = get_config(args.path)
@@ -610,6 +629,7 @@ class MainMoveArgs:
     src: Path
     dst: Path
     verbosity: int
+    dry_run: bool
 
 
 def main_move(args: MainMoveArgs) -> int:
@@ -634,15 +654,20 @@ class MainLintArgs:
 
 
 def main_lint(args: MainLintArgs) -> int:
-    root = get_config_root(args.path)
-    config = get_config(args.path)
+    fs = load_filesystem()
+    repo = find_repo(args.path, fs)
+    assert repo is not None
+
     if len(args.files) == 0:
         files = None
     else:
         for file in args.files:
             assert file.is_file()
         files = list(args.files)
-    run_linter(root, config, files, profile_checks=args.profile_checks)
+
+    repo_tree = fs.restrict_to_subdir(repo.path)
+    proc = run_linter(repo_tree, config, files, profile_checks=args.profile_checks)
+    proc.check_call()
     return STATUS_OK
 
 
@@ -674,8 +699,9 @@ class MainDtgenArgs:
 
 
 def main_dtgen(args: MainDtgenArgs) -> int:
-    repo = get_config_root(args.path)
-    config = get_config(args.path)
+    fs = load_filesystem()
+    repo = find_repo(args.path, fs)
+    config = load_repo_config(repo, fs)
     if len(args.files) == 0:
         files = None
     else:
@@ -685,10 +711,9 @@ def main_dtgen(args: MainDtgenArgs) -> int:
 
     run_dtgen(
         repo=repo,
-        repo_path_tree=RepoPathTree.for_repo(repo),
-        config=config,
+        repo_path_tree=repo.file_tree(),
         force=args.force,
-        ifndef_base=
+        ifndef_base=config.ifndef_name,
         files=files,
         delete_outdated=True,
     )
@@ -703,12 +728,11 @@ class MainDoxygenArgs:
 
 
 def main_doxygen(args: MainDoxygenArgs) -> int:
-    root = get_config_root(args.path)
     config = get_config(args.path)
 
     env = {
         **os.environ,
-        "FF_HOME": root,
+        "FF_HOME": config.base,
     }
     stderr: Union[int, TextIO] = sys.stderr
     stdout: Union[int, TextIO] = sys.stdout
@@ -727,7 +751,7 @@ def main_doxygen(args: MainDoxygenArgs) -> int:
         env=env,
         stdout=stdout,
         stderr=stderr,
-        cwd=root,
+        cwd=config.base,
     )
 
     if args.browser:
@@ -743,8 +767,10 @@ def make_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
     subparsers = p.add_subparsers()
 
-    config = try_get_config(Path.cwd())
-
+    repo = find_repo(Path.cwd())
+    
+    config = map_optional(repo, lambda r: load_repo_config(repo, load_filesystem()))
+    
     def set_main_signature(
         parser: argparse.ArgumentParser, func: Callable[[T], int], args_type: Type[T]
     ) -> None:
@@ -872,6 +898,7 @@ def make_parser() -> argparse.ArgumentParser:
     set_main_signature(move_p, main_move, MainMoveArgs)
     move_p.add_argument("src", type=Path)
     move_p.add_argument("dst", type=Path)
+    move_p.add_argument("--dry-run", "-n", action="store_true")
 
     lint_p = subparsers.add_parser("lint")
     set_main_signature(lint_p, main_lint, MainLintArgs)

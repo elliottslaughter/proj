@@ -1,46 +1,27 @@
 from typing import (
     Iterator,
-    Set,
 )
 import itertools
 from proj.paths import (
-    ExtensionConfig,
     RepoRelPath,
-    File,
-    FileGroup,
-    PathRole,
 )
-from proj.path_tree import (
-    RepoPathTree,
+from proj.trees import (
+    PathTree,
 )
-from proj.path_info import (
-    get_library_and_file_for_path,
-)
-from proj.paths import (
-    get_path_for_file_and_library,
-)
+from pathlib import PurePath
+from proj.config_file import ExtensionConfig
+from proj.parse_project import parse_file_path
+from proj.unparse_project import get_repo_rel_path
 
-def get_possible_spec_files(file_group: FileGroup) -> Set[File]:
-    return {
-        File(file_group, PathRole.STRUCT_TOML),
-        File(file_group, PathRole.ENUM_TOML),
-        File(file_group, PathRole.VARIANT_TOML),
-    }
-
-def find_outdated(repo_path_tree: RepoPathTree, extension_config: ExtensionConfig) -> Iterator[RepoRelPath]:
+def find_outdated(repo_path_tree: PathTree, extension_config: ExtensionConfig) -> Iterator[PurePath]:
     for p in itertools.chain(
         repo_path_tree.with_extension(".dtg" + extension_config.header_extension),
         repo_path_tree.with_extension(".dtg" + extension_config.src_extension),
     ):
-        library, file = get_library_and_file_for_path(p, extension_config)
+        file = parse_file_path(RepoRelPath(p), extension_config)
+        assert file is not None
 
-        possible_spec_paths = {
-            get_path_for_file_and_library(library, file, extension_config)
-            for spec_file in get_possible_spec_files(file.group)
-        }
+        spec_path = get_repo_rel_path(file.group.dtgen_toml)
         
-        if not any(
-            repo_path_tree.has_file(possible_spec_path.to_repo_rel(library))
-            for possible_spec_path in possible_spec_paths
-        ):
+        if repo_path_tree.has_file(spec_path):
             yield p

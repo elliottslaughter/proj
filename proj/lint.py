@@ -6,7 +6,7 @@ from .clang_tools import (
     System,
     Arch,
 )
-from pathlib import Path
+from pathlib import Path, PurePath
 from os import PathLike
 import logging
 from typing import (
@@ -15,26 +15,26 @@ from typing import (
     Iterator,
 )
 import subprocess
-from .config_file import ProjectConfig
 from .paths import (
     RepoRelPath,
+)
+from .config_file import (
     ExtensionConfig,
 )
-from .path_tree import (
-    RepoPathTree,
-)
+from .trees import PathTree
+from .subprocess_invocation import SubprocessInvocation
 
 _l = logging.getLogger(__name__)
 
 
-def find_repo_files_for_linter(repo_path_tree: RepoPathTree, extension_config: ExtensionConfig) -> Iterator[RepoRelPath]:
+def find_repo_files_for_linter(repo_path_tree: PathTree, extension_config: ExtensionConfig) -> Iterator[RepoRelPath]:
     extensions = [extension_config.src_extension, ".cpp", ".cu", ".c"]
     blacklist = [
-        RepoRelPath("lib") / "runtime",
-        RepoRelPath("lib") / "kernels",
+        RepoRelPath(PurePath("lib")) / "runtime",
+        RepoRelPath(PurePath("lib")) / "kernels",
     ]
     whitelist = [
-        RepoRelPath("lib"),
+        RepoRelPath(PurePath("lib")),
     ]
 
     def is_blacklisted(p: RepoRelPath) -> bool:
@@ -52,8 +52,8 @@ def find_repo_files_for_linter(repo_path_tree: RepoPathTree, extension_config: E
 
     for extension in extensions:
         for found in repo_path_tree.with_extension(extension):
-            if not is_blacklisted(found):
-                yield found
+            if not is_blacklisted(RepoRelPath(found)):
+                yield RepoRelPath(found)
 
 
 def _run_clang_tidy(
@@ -63,7 +63,7 @@ def _run_clang_tidy(
     files: Sequence[PathLike[str]],
     use_default_config: bool = False,
     profile_checks: bool = False,
-) -> None:
+) -> SubprocessInvocation:
     command = [str(config.clang_tool_binary_path(Tool.clang_tidy))]
     if not use_default_config:
         config_rel_path = config.config_file_for_tool(Tool.clang_tidy)
@@ -82,19 +82,23 @@ def _run_clang_tidy(
         _l.debug(f"Running command {command} on 1 file: {files[0]}")
     else:
         _l.debug(f"Running command {command} on {len(files)} files")
-    subprocess.check_call(command + [*files], stderr=subprocess.STDOUT)
+    return SubprocessInvocation(
+        cmd=command + list(map(str, files)),
+        stderr=subprocess.STDOUT,
+    )
 
 
 def run_linter(
-    root: Path,
-    config: ProjectConfig,
+    repo: Repo,
+    repo_path_tree: PathTree,
+    extension_config: ExtensionConfig,
     files: Optional[Sequence[PathLike[str]]] = None,
     profile_checks: bool = False,
-) -> None:
+) -> SubprocessInvocation:
     if files is None:
-        files = list(find_files(root=root, config=config))
+        files = [f.path for f in find_repo_files_for_linter(repo_path_tree, extension_config)]
     tools_config = ClangToolsConfig(
-        tools_dir=root / ".tools",
+        tools_dir=repo.path / ".tools",
         tool_configs=TOOL_CONFIGS,
         system=System.get_current(),
         arch=Arch.get_current(),
@@ -106,12 +110,12 @@ def run_linter(
     _l.info("Linting the following files:")
     for f in files:
         _l.info(f"- {f}")
-    _run_clang_tidy(
-        root=root,
+    return _run_clang_tidy(
+        root=repo.path,
         config=tools_config,
         args=[
             "-p",
-            str(root / "compile_commands.json"),
+            str(repo.path / "compile_commands.json"),
             "--header-filter",
             f"^{root}/.*$",
         ],

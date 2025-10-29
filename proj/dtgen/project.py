@@ -1,8 +1,4 @@
-from proj.config_file import (
-    ProjectConfig,
-    gen_ifndef_uid,
-)
-from proj.format import run_formatter
+from ..config_file import get_ifndef_for_path
 from typing import (
     TextIO,
     Sequence,
@@ -11,14 +7,17 @@ from typing import (
     Union,
     Tuple,
 )
-from pathlib import Path
+from pathlib import (
+    Path,
+    PurePath,
+)
 from .struct.render import (
     render_header as render_struct_header,
     render_source as render_struct_source,
 )
 from .struct.spec import (
     StructSpec,
-    load_spec as load_struct_spec,
+    parse_struct_spec,
 )
 from .enum.render import (
     render_header as render_enum_header,
@@ -26,11 +25,11 @@ from .enum.render import (
 )
 from .enum.spec import (
     EnumSpec,
-    load_spec as load_enum_spec,
+    parse_enum_spec,
 )
 from .variant.spec import (
     VariantSpec,
-    load_spec as load_variant_spec,
+    parse_variant_spec,
 )
 from .variant.render import (
     render_header as render_variant_header,
@@ -45,35 +44,41 @@ import logging
 from .find_outdated import find_outdated
 from proj.paths import (
     FileGroup,
-    get_repo_rel_path_for_file_and_library,
-    Library,
     ExtensionConfig,
     AbsolutePath,
     File,
     PathRole,
     Repo,
     RepoRelPath,
-    get_absolute_path_for_file,
 )
 from proj.path_info import (
     get_library_and_file_for_path,
 )
 from proj.path_tree import (
-    RepoPathTree,
+    PathTree,
+)
+import io
+from proj.file_tree import (
+    FileTree,
+)
+import toml
+from ..unparse_project import (
+    get_fullpath,
+    get_repo_rel_path,
 )
 
 _l = logging.getLogger(__name__)
 
 
-def find_files(path_tree: RepoPathTree, extension_config: ExtensionConfig) -> Iterator[Tuple[Library, File]]:
+def find_dtgen_spec_in_repo(path_tree: PathTree, extension_config: ExtensionConfig) -> Iterator[File]:
     extensions = [".struct.toml", ".enum.toml", ".variant.toml"]
     blacklist = [
-        RepoRelPath("triton"),
-        RepoRelPath("deps"),
-        RepoRelPath("build"),
+        PurePath("triton"),
+        PurePath("deps"),
+        PurePath("build"),
     ]
 
-    def is_blacklisted(p: RepoRelPath) -> bool:
+    def is_blacklisted(p: PurePath) -> bool:
         for blacklisted in blacklist:
             if found.is_relative_to(blacklisted):
                 return True
@@ -82,7 +87,7 @@ def find_files(path_tree: RepoPathTree, extension_config: ExtensionConfig) -> It
     for extension in extensions:
         for found in path_tree.with_extension(extension):
             if not is_blacklisted(found):
-                yield get_library_and_file_for_path(found, extension_config)
+                yield get_library_and_file_for_path(RepoRelPath(found), extension_config)
 
 
 def render_disclaimer(spec_path: RepoRelPath, f: TextIO) -> None:
@@ -91,7 +96,7 @@ def render_disclaimer(spec_path: RepoRelPath, f: TextIO) -> None:
     f.write(f"// {spec_path}\n")
 
 
-def render_proj_metadata(spec_path: AbsolutePath, f: TextIO) -> None:
+def render_proj_metadata(spec_path: Path, f: TextIO) -> None:
     _hash = get_file_hash(spec_path)
     assert _hash is not None
     proj_metadata = {"generated_from": _hash.hex()}
@@ -168,43 +173,40 @@ def get_path_role_for_spec(spec: Union[StructSpec, EnumSpec, VariantSpec]) -> Pa
 
 def generate_header(
     spec: Union[StructSpec, EnumSpec, VariantSpec],
-    repo: Repo,
-    library: Library,
     file_group: FileGroup,
     force: bool,
     extension_config: ExtensionConfig,
     ifndef_base: str,
-) -> bool:
-    spec_repo_rel = get_repo_rel_path_for_file_and_library(
-        library=library,
-        file=File(file_group, get_path_role_for_spec(spec)),
+) -> Optional[Tuple[PurePath, str]]:
+
+    spec_repo_rel = get_repo_rel_path(
+        file_group.dtgen_toml,
         extension_config=extension_config,
     )
 
-    out_repo_rel = get_repo_rel_path_for_file_and_library(
-        library=library,
-        file=File(file_group, PathRole.GENERATED_HEADER),
+    out_repo_rel = get_repo_rel_path(
+        file_group.generated_source,
         extension_config=extension_config,
     )
 
-    out_abs = out_repo_rel.to_absolute(repo)
-    spec_abs = spec_repo_rel.to_absolute(repo)
+    spec_path = get_fullpath(spec_repo_rel)
+    out_path = get_fullpath(out_repo_rel)
 
     if not (force or needs_generate_to_path(
-            spec_path=spec_abs, 
-            out=out_abs)):
+            spec_path=spec_path, 
+            out=out_path)):
         _l.debug(
-            f"No generation needed for {spec_repo_rel} -> {out_repo_rel}"
+            f"No generation needed for {spec_repo_rel.path} -> {out_repo_rel.path}"
         )
-        return False
+        return None
 
-    _l.info(f"Regenerating {spec_repo_rel} -> {out_repo_rel}")
+    _l.info(f"Regenerating {spec_repo_rel.path} -> {out_repo_rel.path}")
 
-    out_abs.parent.mkdir(exist_ok=True, parents=True)
-    with out_abs.open() as f:
+    out_path.parent.mkdir(exist_ok=True, parents=True)
+    with io.StringIO() as f:
         render_disclaimer(spec_path=spec_repo_rel, f=f)
-        render_proj_metadata(spec_path=spec_abs, f=f)
-        ifndef = gen_ifndef_uid(ifndef_base, out_repo_rel)
+        render_proj_metadata(spec_path=spec_path, f=f)
+        ifndef = get_ifndef_for_path(ifndef_base, out_repo_rel)
         f.write("\n")
         f.write(f"#ifndef {ifndef}\n")
         f.write(f"#define {ifndef}\n")
@@ -218,49 +220,46 @@ def generate_header(
             render_enum_header(spec, f)
         f.write("\n")
         f.write(f"#endif // {ifndef}\n")
+        return (spec_path, f.getvalue())
 
-    return True
-
-def get_include_path(library: Library, file_group: FileGroup, header_extension: str) -> str:
-    return str(library.name / file_group.group_path.parent / (file_group.group_path.name + header_extension))
+def get_include_path(file_group: FileGroup, header_extension: str) -> str:
+    assert file_group.library is not None
+    return str(file_group.library.name / file_group.group_path.parent / (file_group.group_path.name + header_extension))
 
 def generate_source(
     spec: Union[StructSpec, EnumSpec, VariantSpec],
-    repo: Repo,
-    library: Library,
     file_group: FileGroup,
     force: bool,
     extension_config: ExtensionConfig,
-) -> bool:
-    spec_repo_rel = get_repo_rel_path_for_file_and_library(
-        library=library,
-        file=File(file_group, get_path_role_for_spec(spec)),
+) -> Optional[Tuple[Path, str]]:
+
+    spec_repo_rel = get_repo_rel_path(
+        file_group.dtgen_toml,
         extension_config=extension_config,
     )
 
-    out_repo_rel = get_repo_rel_path_for_file_and_library(
-        library=library,
-        file=File(file_group, PathRole.GENERATED_HEADER),
+    out_repo_rel = get_repo_rel_path(
+        file_group.generated_source,
         extension_config=extension_config,
     )
 
-    out_abs = out_repo_rel.to_absolute(repo)
-    spec_abs = spec_repo_rel.to_absolute(repo)
+    spec_path = get_fullpath(spec_repo_rel)
+    out_path = get_fullpath(out_repo_rel)
 
-    if not (force or needs_generate_to_path(spec_path=spec_abs, out=out_abs)):
+    if not (force or needs_generate_to_path(spec_path=spec_path, out=out_path)):
         _l.info(
             f"No generation needed for {spec_repo_rel} -> {out_repo_rel}"
         )
-        return False
+        return None
 
     _l.info(f"Regenerating {spec_repo_rel} -> {out_repo_rel}")
 
-    include_path = get_include_path(library, file_group, extension_config.header_extension)
+    include_path = get_include_path(file_group, extension_config.header_extension)
 
-    out_abs.parent.mkdir(exist_ok=True, parents=True)
-    with out_abs.open() as f:
+    out_path.parent.mkdir(exist_ok=True, parents=True)
+    with io.StringIO() as f:
         render_disclaimer(spec_path=spec_repo_rel, f=f)
-        render_proj_metadata(spec_path=spec_abs, f=f)
+        render_proj_metadata(spec_path=spec_path, f=f)
         f.write("\n")
         f.write(f'#include "{include_path}"\n')
         f.write("\n")
@@ -271,90 +270,91 @@ def generate_source(
         else:
             assert isinstance(spec, EnumSpec)
             render_enum_source(spec, f)
+        return (out_path, f.getvalue())
 
-    return True
 
+def load_spec_file(p: PurePath) -> Union[StructSpec, EnumSpec, VariantSpec]:
+    assert p.is_absolute() 
+
+    try:
+        raw = toml.loads(p.read_text())
+    except toml.TOMLDecodeError as e:
+        raise RuntimeError(f"Failed to load spec {p}") from e
+
+    spec_type = raw['type']
+    del raw['type']
+    if spec_type == 'struct':
+        return parse_struct_spec(raw)
+    elif spec_type == 'variant':
+        return parse_variant_spec(raw)
+    elif spec_type == 'enum':
+        return parse_enum_spec(raw)
+    else:
+        raise RuntimeError()
 
 def generate_files(
-    repo: Repo, library: Library, spec_file: File, force: bool, extension_config: ExtensionConfig, ifndef_base: str,
-) -> Iterator[AbsolutePath]:
-    assert spec_file.file_type in [PathRole.STRUCT_TOML, PathRole.ENUM_TOML, PathRole.VARIANT_TOML]
+    file_group: FileGroup, 
+    force: bool, 
+    extension_config: ExtensionConfig, 
+    ifndef_base: str,
+    file_tree: FileTree,
+) -> Iterator[Tuple[AbsolutePath, str]]:
+    spec_path = get_fullpath(file_group.dtgen_toml, extension_config)
 
-    spec_path = get_absolute_path_for_file(repo, library, spec_file, extension_config)
+    spec = load_spec_file(spec_path)
 
-    spec: Union[StructSpec, EnumSpec, VariantSpec]
-    if spec_file.file_type == PathRole.STRUCT_TOML:
-        spec = load_struct_spec(spec_path.raw)
-    elif spec_file.file_type == PathRole.VARIANT_TOML:
-        spec = load_variant_spec(spec_path.raw)
-    elif spec_file.file_type == PathRole.ENUM_TOML:
-        spec = load_enum_spec(spec_path.raw)
-    else:
-        raise ValueError()
+    header_path = get_fullpath(file_group.generated_header)
+    source_path = get_fullpath(file_group.generate_source)
 
-    header_path = get_absolute_path_for_file(
-        repo=repo,
-        library=library,
-        file=spec_file.group.generated_header,
-        extension_config=extension_config,
+    header_contents = generate_header(
+        spec=spec, 
+        file_group=file_group, 
+        force=force, 
+        extension_config=extension_config, 
+        ifndef_base=ifndef_base,
     )
 
-    source_path = get_absolute_path_for_file(
-        repo=repo,
-        library=library,
-        file=spec_file.group.generated_source,
-        extension_config=extension_config,
-    )
+    if header_contents is not None:
+        yield (header_path, header_contents)
 
-    if generate_header(
-        spec=spec, repo=repo, library=library, file_group=spec_file.group, force=force, extension_config=extension_config, ifndef_base=ifndef_base,
-    ):
-        yield header_path
-
-    if generate_source(
+    source_contents = generate_source(
         spec=spec,
-        repo=repo,
-        library=library,
-        file_group=spec_file.group,
+        file_group=file_group.group,
         force=force,
         extension_config=extension_config,
-    ):
-        yield source_path
+    )
+    if source_contents is not None:
+        yield (source_path, source_contents)
 
 
 def run_dtgen(
     repo: Repo,
-    repo_path_tree: RepoPathTree,
-    config: ProjectConfig,
+    repo_file_tree: FileTree,
     force: bool,
     extension_config: ExtensionConfig,
     ifndef_base: str,
-    files: Optional[Sequence[Tuple[Library, File]]] = None,
+    files: Optional[Sequence[File]] = None,
     delete_outdated: bool = True,
 ) -> None:
     if files is None:
-        files = list(find_files(repo_path_tree, extension_config))
+        files = list(find_dtgen_spec_in_repo(repo_file_tree, extension_config))
 
     _l.info("Running dtgen on following files:")
     for f in files:
         _l.info(f"- {f}")
-    for (library, spec_file) in files:
-        generated = list(
-            generate_files(
-                repo=repo,
-                library=library,
-                spec_file=spec_file,
-                force=force,
-                extension_config=extension_config,
-                ifndef_base=ifndef_base,
-            )
+    for spec_file in files:
+        generate_files(
+            repo=repo,
+            spec_file=spec_file,
+            force=force,
+            extension_config=extension_config,
+            ifndef_base=ifndef_base,
+            file_tree=repo_file_tree,
         )
-        if len(generated) > 0:
-            run_formatter(config, generated)
 
-    for outdated in find_outdated(repo_path_tree, extension_config):
+    for outdated in find_outdated(repo_file_tree, extension_config):
         if delete_outdated:
             _l.info(f"Removing out-of-date file at {outdated}")
-            outdated.unlink()
+            repo_file_tree.rm_file(outdated)
         else:
             _l.warning(f"Possible out-of-date file at {outdated}")
