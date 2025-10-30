@@ -17,6 +17,7 @@ from typing import (
 import subprocess
 from .paths import (
     RepoRelPath,
+    Repo,
 )
 from .config_file import (
     ExtensionConfig,
@@ -94,11 +95,11 @@ def run_linter(
     extension_config: ExtensionConfig,
     files: Optional[Sequence[PathLike[str]]] = None,
     profile_checks: bool = False,
-) -> SubprocessInvocation:
+) -> None:
     if files is None:
         files = [f.path for f in find_repo_files_for_linter(repo_path_tree, extension_config)]
     tools_config = ClangToolsConfig(
-        tools_dir=repo.path / ".tools",
+        tools_dir=Path(repo.path / ".tools"),
         tool_configs=TOOL_CONFIGS,
         system=System.get_current(),
         arch=Arch.get_current(),
@@ -110,15 +111,15 @@ def run_linter(
     _l.info("Linting the following files:")
     for f in files:
         _l.info(f"- {f}")
-    return _run_clang_tidy(
-        root=repo.path,
+    _run_clang_tidy(
+        root=Path(repo.path),
         config=tools_config,
         args=[
             "-p",
             str(repo.path / "compile_commands.json"),
             "--header-filter",
-            f"^{root}/.*$",
+            f"^{repo.path}/.*$",
         ],
         files=files,
         profile_checks=profile_checks,
-    )
+    ).check_call()

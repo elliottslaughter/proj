@@ -1,33 +1,31 @@
 from proj.dtgen.find_outdated import (
     find_outdated,
 )
-from proj.path_tree import (
-    RepoPathTree, 
-    PathTree,
+from proj.trees import (
+    EmulatedPathTree,
     PathType,
 )
 from proj.paths import (
-    ExtensionConfig,
     RepoRelPath,
 )
+from proj.config_file import ExtensionConfig
+from pathlib import PurePath
 
 def test_find_outdated() -> None:
-    repo_path_tree: RepoPathTree = RepoPathTree(
-        PathTree.from_map({
-            p: PathType.FILE 
-            for p in [
-                'CMakeLists.txt',
-                '.proj.toml',
-                'lib/CMakeLists.txt',
-                'lib/person/CMakeLists.txt',
-                'lib/person/include/person/example_struct.struct.toml',
-                'lib/person/include/person/example_enum.enum.toml',
-                'lib/person/include/person/example_variant.variant.toml',
-                'lib/person/include/person/out_of_date.dtg.hh',
-                'lib/person/src/person/out_of_date2.dtg.cc',
-            ]
-        })
-    )
+    repo_path_tree = EmulatedPathTree.from_map({
+        PurePath(p): PathType.FILE 
+        for p in [
+            'CMakeLists.txt',
+            '.proj.toml',
+            'lib/CMakeLists.txt',
+            'lib/person/CMakeLists.txt',
+            'lib/person/include/person/example_struct.dtg.toml',
+            'lib/person/include/person/example_enum.dtg.toml',
+            'lib/person/include/person/example_variant.dtg.toml',
+            'lib/person/include/person/out_of_date.dtg.hh',
+            'lib/person/src/person/out_of_date2.dtg.cc',
+        ]
+    })
 
     extension_config = ExtensionConfig(
         '.hh',
@@ -36,8 +34,8 @@ def test_find_outdated() -> None:
 
     found = set(find_outdated(repo_path_tree, extension_config))
     correct = set([
-        RepoRelPath('lib/person/include/person/out_of_date.dtg.hh'),
-        RepoRelPath('lib/person/src/person/out_of_date2.dtg.cc'),
+        RepoRelPath(PurePath('lib/person/include/person/out_of_date.dtg.hh')),
+        RepoRelPath(PurePath('lib/person/src/person/out_of_date2.dtg.cc')),
     ])
     assert found == correct
 

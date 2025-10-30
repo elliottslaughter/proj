@@ -1,5 +1,6 @@
 namespace = "FlexFlow"
 name = "empty_t"
+type = "struct"
 features = [
   "eq",
   "ord",

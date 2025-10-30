@@ -1,5 +1,6 @@
 namespace = "FlexFlow"
 name = "Color"
+type = "enum"
 docstring = """
 A color 
 

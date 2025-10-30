@@ -1,21 +1,22 @@
 namespace = "FlexFlow"
-name = "PersonIndirect"
+name = "Person"
+type = "struct"
+docstring = """\
+A person
+
+Just like you or me
+"""
 features = [
   "eq",
   "ord",
   "hash",
   "json",
+  "rapidcheck",
   "fmt",
 ]
 
 includes = [
-  "<string>",
-  "<optional>",
-]
-
-src_includes = [
-  "person/fmt/optional.h",
-  "person/json/optional.h",
+  "<string>"
 ]
 
 [[fields]]
@@ -30,8 +31,4 @@ type = "std::string"
 name = "age"
 type = "int"
 json_key = "age_in_years"
-
-[[fields]]
-name = "spouse"
-type = "std::optional<::FlexFlow::PersonIndirect>"
-indirect = true
+docstring = "The Person's age (in years)"

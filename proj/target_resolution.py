@@ -33,6 +33,7 @@ from .build import (
 from .testing import (
     resolve_test_case_target_using_build,
 )
+from .trees import load_filesystem_for_repo
 
 
 def fully_resolve_run_target(
@@ -87,10 +88,14 @@ def fully_resolve_run_target(
             f"Cannot run target {unresolved_target} as no gpus are available on the current machine."
         )
 
+
+    repo_file_tree = load_filesystem_for_repo(config.repo)
+
     build_targets(
+        repo=config.repo,
+        repo_path_tree=repo_file_tree,
         config=config,
         targets=[resolved_target.build_target],
-        dtgen_skip=False,
         jobs=jobs,
         verbosity=verbosity,
         build_dir=build_dir,

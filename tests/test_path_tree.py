@@ -1,11 +1,6 @@
-from proj.path_tree import (
-    RepoPathTree,
+from proj.trees import (
     EmulatedPathTree,
-    PathTree,
     PathType,
-)
-from proj.paths import (
-    RepoRelPath,
 )
 from pathlib import (
     PurePath,
@@ -16,11 +11,11 @@ from pathlib import (
 
 def test_emulated_path_tree_restrict_to_subdir():
     lib_path_tree = EmulatedPathTree.from_map({
-        p: PathType.FILE
+        PurePath(p): PathType.FILE
         for p in [
             'CMakeLists.txt',
-            'include/example/example_variant.variant.toml',
-            'include/example/example_struct.struct.toml',
+            'include/example/example_variant.dtg.toml',
+            'include/example/example_struct.dtg.toml',
             'src/example/example_struct.cc',
         ]
     })
@@ -28,10 +23,10 @@ def test_emulated_path_tree_restrict_to_subdir():
     result = lib_path_tree.restrict_to_subdir(PurePath('include/example'))
 
     correct = EmulatedPathTree.from_map({
-        p: PathType.FILE
+        PurePath(p): PathType.FILE
         for p in [
-            'example_variant.variant.toml',
-            'example_struct.struct.toml',
+            'example_variant.dtg.toml',
+            'example_struct.dtg.toml',
         ]
     })
 

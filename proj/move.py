@@ -51,8 +51,12 @@ def get_moves_for_group(
 
         yield ConcreteMove(src_path, dst_path)
 
-def get_move_plan(repo_path_tree: PathTree, src_file: File, dst_file: File, extension_config: ExtensionConfig) -> Set[ConcreteMove]:
-
+def get_move_plan(
+    repo_path_tree: PathTree,
+    src_file: File, 
+    dst_file: File, 
+    extension_config: ExtensionConfig,
+) -> Set[ConcreteMove]:
     assert src_file.role == dst_file.role
 
     return set(get_moves_for_group(repo_path_tree, src_file.group, dst_file.group, extension_config))
@@ -66,7 +70,13 @@ def pretty_print_move_plan(move_plan: Set[ConcreteMove]) -> str:
         s.write(f'{ancestor}/{{{src_rel} -> {dst_rel}}}\n')
     return s.getvalue()
 
-def execute_move(extension_config: ExtensionConfig, repo_path_tree: MutablePathTree, src: RepoRelPath, dst: RepoRelPath, dry_run: bool) -> None:
+def perform_file_group_move(
+    extension_config: ExtensionConfig, 
+    repo_path_tree: MutablePathTree, 
+    src: RepoRelPath, 
+    dst: RepoRelPath, 
+    dry_run: bool,
+) -> None:
     src_file = parse_file_path(src, extension_config)
     assert src_file is not None
     dst_file = parse_file_path(dst, extension_config)
@@ -77,6 +87,7 @@ def execute_move(extension_config: ExtensionConfig, repo_path_tree: MutablePathT
         output = pretty_print_move_plan(move_plan)
         print(output)
     for move in move_plan:
+        repo_path_tree.mkdir(move.dst.path.parent, exist_ok=True, parents=True)
         repo_path_tree.rename(
             src=move.src.path,
             dst=move.dst.path,

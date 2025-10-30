@@ -1,5 +1,6 @@
 namespace = "FlexFlow"
 name = "VariantHoldingTuple"
+type = "variant"
 features = [
   "eq",
 ]

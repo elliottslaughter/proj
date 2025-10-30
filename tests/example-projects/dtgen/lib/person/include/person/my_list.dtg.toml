@@ -1,5 +1,6 @@
 namespace = "FlexFlow"
 name = "MyList"
+type = "variant"
 features = [
   "eq",
   "ord",

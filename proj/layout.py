@@ -51,7 +51,12 @@ def scan_library_for_files(
     ) -> KnownFile | File | UnrecognizedFile:
         if p.name == 'README.md':
             return KnownFile(p)
-        if p == PurePath('CMakeLists.txt'):
+        allowed_cmake_files = [
+            PurePath('CMakeLists.txt'),
+            PurePath('test/CMakeLists.txt'),
+            PurePath('benchmark/CMakeLists.txt'),
+        ]
+        if p in allowed_cmake_files:
             return KnownFile(p)
 
         file = parse_file_path(LibraryRelPath(p, library), extension_config)
@@ -86,12 +91,14 @@ def detect_missing_roles(present: Collection[RoleInGroup]) -> Set[RoleInGroup]:
     return necessary - set(present)
 
 
-def detect_incomplete_groups(m: Mapping[Tuple[Library, FileGroup], Collection[RoleInGroup]]) -> Iterator[IncompleteGroup]:
-    for (library, file_group), path_roles in m.items():
+def detect_incomplete_groups(m: Mapping[FileGroup, Collection[RoleInGroup]]) -> Iterator[IncompleteGroup]:
+    allowlist = [
+        PurePath('main'),
+    ]
+    for file_group, path_roles in m.items():
         missing_roles = frozenset(detect_missing_roles(path_roles))
-        if len(missing_roles) > 0:
+        if len(missing_roles) > 0 and file_group.group_path not in allowlist:
             yield IncompleteGroup(
-                library=library,
                 file_group=file_group,
                 missing=missing_roles,
             )
@@ -100,11 +107,11 @@ def run_layout_check(
     repo_path_tree: PathTree,
     extension_config: ExtensionConfig,
 ) -> Iterator[IncompleteGroup | UnrecognizedFile]:
-    file_groups: Dict[Tuple[Library, FileGroup], Set[RoleInGroup]] = defaultdict(set)
+    file_groups: Dict[FileGroup, Set[RoleInGroup]] = defaultdict(set)
     for library, library_tree in scan_repo_for_libraries(repo_path_tree, extension_config):
         for file_found in scan_library_for_files(library, library_tree, extension_config):
             if isinstance(file_found, UnrecognizedFile):
                 yield file_found
             elif isinstance(file_found, File):
-                file_groups[(library, file_found.group)].add(file_found.role)
+                file_groups[file_found.group].add(file_found.role)
     yield from detect_incomplete_groups(file_groups)

@@ -4,6 +4,7 @@ from typing import (
     Iterator,
     Mapping,
     Union,
+    Iterable,
 )
 from enum import (
     Enum,
@@ -76,7 +77,7 @@ class EmulatedPathTree(MutablePathTree):
         assert self.has_dir(dst.parent)
         assert not self.has_path(dst)
         self._paths[dst] = self._paths[src]
-        del self._paths[dst]
+        del self._paths[src]
 
     @staticmethod
     def from_map(m: Union[Mapping[PurePath, PathType]]) -> 'EmulatedPathTree':
@@ -87,6 +88,13 @@ class EmulatedPathTree(MutablePathTree):
                 expanded[parent] = PathType.DIR
             expanded[p] = path_type
         return EmulatedPathTree(expanded)
+
+    @staticmethod
+    def from_lists(files: Iterable[Union[str, PurePath]], dirs: Iterable[Union[str, PurePath]] = tuple()) -> 'EmulatedPathTree':
+        return EmulatedPathTree.from_map({
+            **{PurePath(f): PathType.FILE for f in files},
+            **{PurePath(d): PathType.DIR for d in dirs},
+        })
 
     @staticmethod
     def from_fs(base: Path) -> 'EmulatedPathTree':

@@ -12,8 +12,8 @@ import tempfile
 from dataclasses import dataclass
 from proj.config_file import (
     ProjectConfig,
-    load_config,
 )
+from proj.__main__ import get_config
 
 MAX_VERBOSITY = 100
 
@@ -59,5 +59,5 @@ def loaded_cmade_project_instance(project_name: str) -> Iterator[LoadedProject]:
     with cmade_project_instance(project_name) as d:
         yield LoadedProject(
             path=d,
-            config=load_config(d),
+            config=get_config(d),
         )

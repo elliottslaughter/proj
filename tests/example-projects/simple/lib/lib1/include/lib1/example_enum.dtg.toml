@@ -1,5 +1,6 @@
 namespace = "FlexFlow"
 name = "ExampleEnum"
+type = "enum"
 features = []
 
 includes = []

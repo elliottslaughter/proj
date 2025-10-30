@@ -1,5 +1,6 @@
 namespace = "FlexFlow"
 name = "wrapper_int_t"
+type = "struct"
 features = [
   "eq",
   "ord",

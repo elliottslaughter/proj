@@ -6,23 +6,21 @@ from typing import (
     Optional,
     Mapping,
     Union,
+    TextIO,
 )
 from dataclasses import dataclass, field
 import subprocess
-import io
 
 @dataclass(frozen=True)
 class SubprocessInvocation:
     cmd: Sequence[str]
     cwd: Optional[Path] = field(default=None)
-    stdout: Optional[Union[int, io.TextIO]] = field(default=None)
-    stderr: Optional[Union[int, io.TextIO]] = field(default=None)
+    stdout: Optional[Union[int, TextIO]] = field(default=None)
+    stderr: Optional[Union[int, TextIO]] = field(default=None)
     env: Optional[Mapping[str, str]] = field(default=None)
 
     def check_call(self) -> None:
-        kwargs: Dict[str, Any] = {
-            'cmd': self.cmd,
-        }
+        kwargs: Dict[str, Any] = {}
         if self.cwd is not None:
             kwargs['cwd'] = self.cwd
         if self.stdout is not None:
@@ -32,4 +30,4 @@ class SubprocessInvocation:
         if self.env is not None:
             kwargs['env'] = self.env
 
-        subprocess.check_call(**kwargs)
+        subprocess.check_call(self.cmd, **kwargs)

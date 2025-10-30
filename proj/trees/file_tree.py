@@ -25,3 +25,11 @@ class MutableFileTree(MutablePathTree, FileTree):
         parents: bool = False,
     ) -> None:
         ...
+
+class FileTreeWithMtime(FileTree):
+    @abc.abstractmethod
+    def get_mtime(self, p: PurePath) -> float:
+        ...
+
+class MutableFileTreeWithMtime(MutableFileTree, FileTreeWithMtime):
+    ...

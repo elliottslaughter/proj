@@ -10,9 +10,10 @@ from typing import (
     Dict,
     Any,
 )
-from pathlib import Path
+from pathlib import Path, PurePath
 import dataclasses
 from immutables import Map
+from proj.paths import Repo
 
 def get_example_config() -> Dict[str, Any]:
     return {
@@ -32,11 +33,11 @@ def get_example_config() -> Dict[str, Any]:
         ConfigKey.CUDA_LAUNCH_CMD: ['a', 'b'],
     }
 
-CONFIG_ROOT = Path('/config/root')
+REPO = Repo(PurePath('/config/root'))
 
 LOADED_CONFIG = ProjectConfig(
     project_name='test',
-    base=CONFIG_ROOT,
+    base=Path(REPO.path),
     _targets=Map({}),
     _default_build_targets=tuple(),
     _default_test_targets=tuple(),
@@ -54,7 +55,7 @@ LOADED_CONFIG = ProjectConfig(
 
 def test_load_parsed_config_loads_complete_value() -> None:
     loaded = load_parsed_config(
-        config_root=CONFIG_ROOT,
+        repo=REPO,
         raw=get_example_config(),
     )
 
@@ -65,7 +66,7 @@ def test_load_parsed_config_loads_when_missing_optional_field() -> None:
     del raw[ConfigKey.HEADER_EXTENSION]
 
     loaded = load_parsed_config(
-        config_root=CONFIG_ROOT,
+        repo=REPO,
         raw=raw,
     )
 
@@ -79,7 +80,7 @@ def test_load_parsed_config_fails_to_load_config_with_extra_key() -> None:
 
     with pytest.raises(Exception):
         load_parsed_config(
-            config_root=CONFIG_ROOT,
+            repo=REPO,
             raw=raw,
         )
 
@@ -89,15 +90,15 @@ def test_load_parsed_config_fails_to_load_when_missing_required_field() -> None:
 
     with pytest.raises(Exception):
         load_parsed_config(
-            config_root=CONFIG_ROOT,
+            repo=REPO,
             raw=raw,
         )
 
 def test_with_suffix_appended() -> None:
     assert with_suffix_appended(
         Path('/hello/world.h'),
-        '.struct.toml',
-    ) == Path('/hello/world.h.struct.toml')
+        '.dtg.toml',
+    ) == Path('/hello/world.h.dtg.toml')
 
     assert with_suffix_appended(
         Path('/hello/world.struct.h'),
@@ -107,8 +108,8 @@ def test_with_suffix_appended() -> None:
 def test_with_suffixes() -> None:
     assert with_suffixes(
         Path('/hello/world.h'),
-        '.struct.toml',
-    ) == Path('/hello/world.struct.toml')
+        '.dtg.toml',
+    ) == Path('/hello/world.dtg.toml')
 
     assert with_suffixes(
         Path('/hello/world.struct.h'),

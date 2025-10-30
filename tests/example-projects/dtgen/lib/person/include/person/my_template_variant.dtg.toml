@@ -1,5 +1,6 @@
 namespace = "FlexFlow"
 name = "MyTemplateVariant"
+type = "variant"
 features = [
   "eq",
   "ord",

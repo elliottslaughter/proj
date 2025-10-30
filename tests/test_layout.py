@@ -6,25 +6,27 @@ from proj.layout import (
     IncompleteGroup,
     scan_repo_for_libraries,
     detect_missing_roles,
+    detect_incomplete_groups,
 )
 from proj.paths import (
     Library,
     FileGroup,
-    ExtensionConfig,
-    PathRole,
+    RoleInGroup,
 )
-from proj.path_tree import (
+from proj.trees import (
     EmulatedPathTree,
     PathType,
 )
 from pathlib import (
     PurePath,
 )
+from proj.config_file import ExtensionConfig
+from typing import Set
 
 def test_scan_library_for_files() -> None:
     library = Library('example')
 
-    struct_toml = 'include/example/example_struct.struct.toml'
+    struct_toml = 'include/example/example_struct.dtg.toml'
     header = 'include/example/example_struct.h'
     src_f = 'src/example/example_struct.cc'
     test_src = 'test/src/example/example_struct.cc'
@@ -35,10 +37,10 @@ def test_scan_library_for_files() -> None:
     )
 
     library_path_tree = EmulatedPathTree.from_map({
-        p: PathType.FILE 
+        PurePath(p): PathType.FILE 
         for p in [
             'CMakeLists.txt',
-            'include/example/example_variant.variant.toml',
+            'include/example/example_variant.dtg.toml',
             struct_toml,
             header,
             src_f,
@@ -50,16 +52,16 @@ def test_scan_library_for_files() -> None:
 
     result = set(scan_library_for_files(library, library_path_tree, extension_config))
 
-    group = FileGroup(PurePath('example_struct'))
+    group = FileGroup(PurePath('example_struct'), library=library)
 
     correct = {
         KnownFile(PurePath('CMakeLists.txt')),
-        group.struct_toml,
+        group.dtgen_toml,
         group.public_header,
         group.source,
         group.test,
         group.benchmark,
-        FileGroup(PurePath('example_variant')).variant_toml,
+        FileGroup(PurePath('example_variant'), library=library).dtgen_toml,
         UnrecognizedFile(PurePath('src/bad.cc'))
     }
 
@@ -71,11 +73,11 @@ def test_scan_repo_for_libraries() -> None:
     )
 
     repo_path_tree = EmulatedPathTree.from_map({
-        p: PathType.FILE
+        PurePath(p): PathType.FILE
         for p in [
             'lib/example/CMakeLists.txt',
-            'lib/example/include/example/example_variant.variant.toml',
-            'lib/example/include/example/example_struct.struct.toml',
+            'lib/example/include/example/example_variant.dtg.toml',
+            'lib/example/include/example/example_struct.dtg.toml',
             'lib/example/src/example/example_struct.cc',
             'lib/example/test/src/example/example_struct.cc',
             'lib/example/benchmark/src/example/example_struct.cc',
@@ -84,11 +86,11 @@ def test_scan_repo_for_libraries() -> None:
     })
 
     lib_path_tree = EmulatedPathTree.from_map({
-        p: PathType.FILE
+        PurePath(p): PathType.FILE
         for p in [
             'CMakeLists.txt',
-            'include/example/example_variant.variant.toml',
-            'include/example/example_struct.struct.toml',
+            'include/example/example_variant.dtg.toml',
+            'include/example/example_struct.dtg.toml',
             'src/example/example_struct.cc',
             'test/src/example/example_struct.cc',
             'benchmark/src/example/example_struct.cc',
@@ -107,22 +109,58 @@ def test_scan_repo_for_libraries() -> None:
     assert set(result.keys()) == set(correct.keys())
     assert result[Library('example')] == lib_path_tree
 
+def test_detect_incomplete_groups_detects_missing_header() -> None:
+    file_group = FileGroup(PurePath('a'), Library('d'))
+
+    input = {
+        file_group: [
+            RoleInGroup.SOURCE,
+            RoleInGroup.DTGEN_TOML,
+            RoleInGroup.TEST,
+            RoleInGroup.BENCHMARK,
+        ]
+    }
+
+    result = set(detect_incomplete_groups(input))
+
+    correct = {
+        IncompleteGroup(file_group, frozenset([RoleInGroup.PUBLIC_HEADER]))
+    }
+
+    assert result == correct
+
+def test_detect_incomplete_groups_ignores_main_file() -> None:
+    file_group = FileGroup(PurePath('main'), Library('d'))
+
+    input = {
+        file_group: [
+            RoleInGroup.SOURCE,
+        ]
+    }
+
+    result = set(detect_incomplete_groups(input))
+
+    correct: Set[IncompleteGroup] = set()
+
+    assert result == correct
+
+
 def test_detect_missing_roles() -> None:
     result = detect_missing_roles({
-        PathRole.SOURCE,
-        PathRole.STRUCT_TOML,
-        PathRole.TEST,
-        PathRole.BENCHMARK,
+        RoleInGroup.SOURCE,
+        RoleInGroup.DTGEN_TOML,
+        RoleInGroup.TEST,
+        RoleInGroup.BENCHMARK,
     })
 
-    correct = {PathRole.PUBLIC_HEADER}
+    correct = {RoleInGroup.PUBLIC_HEADER}
 
     assert correct == result
 
 def test_run_layout_check() -> None:
     library = Library('example')
 
-    struct_toml = 'lib/example/include/example/example_struct.struct.toml'
+    struct_toml = 'lib/example/include/example/example_struct.dtg.toml'
     src_f = 'lib/example/src/example/example_struct.cc'
     test_src = 'lib/example/test/src/example/example_struct.cc'
     benchmark_src = 'lib/example/benchmark/src/example/example_struct.cc'
@@ -132,10 +170,10 @@ def test_run_layout_check() -> None:
     )
 
     library_path_tree = EmulatedPathTree.from_map({
-        p: PathType.FILE 
+        PurePath(p): PathType.FILE 
         for p in [
             'lib/example/CMakeLists.txt',
-            'lib/example/include/example/example_variant.variant.toml',
+            'lib/example/include/example/example_variant.dtg.toml',
             struct_toml,
             src_f,
             test_src,
@@ -146,10 +184,10 @@ def test_run_layout_check() -> None:
 
     result = set(run_layout_check(library_path_tree, extension_config))
 
-    group = FileGroup(PurePath('example_struct'))
+    group = FileGroup(PurePath('example_struct'), library)
 
     correct = {
-        IncompleteGroup(library, group, frozenset({PathRole.PUBLIC_HEADER})),
+        IncompleteGroup(group, frozenset({RoleInGroup.PUBLIC_HEADER})),
         UnrecognizedFile(PurePath('src/bad.cc'))
     }
 

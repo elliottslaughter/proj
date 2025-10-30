@@ -1,5 +1,6 @@
 namespace = "FlexFlow"
 name = "MyIntListCons"
+type = "struct"
 features = [
   "eq",
   "ord",

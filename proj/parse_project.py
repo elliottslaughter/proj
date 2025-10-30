@@ -15,6 +15,7 @@ from .paths import (
     RoleInGroup,
     FileGroup,
 )
+from .utils import map_optional
 
 if TYPE_CHECKING:
     from .config_file import ExtensionConfig
@@ -25,14 +26,14 @@ def _possible_config_paths(d: PurePath) -> Iterator[PurePath]:
         yield config_path
 
 def find_repo(p: PurePath, path_tree: PathTree) -> Optional[Repo]:
-    return parse_repo_path(p, path_tree).repo
+    return map_optional(parse_repo_path(p, path_tree), lambda repo_rel: repo_rel.repo)
 
-def parse_repo_path(p: PurePath, path_tree: PathTree) -> RepoRelPath:
+def parse_repo_path(p: PurePath, path_tree: PathTree) -> Optional[RepoRelPath]:
     for possible_config in _possible_config_paths(p):
         if path_tree.has_file(possible_config):
             repo_root = possible_config.parent
             return RepoRelPath(p.relative_to(repo_root), Repo(repo_root))
-    raise RuntimeError(f'Failed to find config for path {p=}')
+    return None
 
 def parse_library_path(repo_rel: RepoRelPath) -> LibraryRelPath:
     assert repo_rel.path.parts[0] == 'lib'
@@ -44,7 +45,10 @@ def find_libraries_in_repo(repo: Repo, path_tree: PathTree) -> Iterator[Library]
     for lib_name in path_tree.ls_dir(repo.path / 'lib'):
         yield Library(lib_name.name, repo=repo)
 
-def parse_file_path(rel: Union[LibraryRelPath, RepoRelPath], extension_config: ExtensionConfig) -> Optional[File]:
+def parse_file_path(
+    rel: Union[LibraryRelPath, RepoRelPath], 
+    extension_config: 'ExtensionConfig',
+) -> Optional[File]:
     lib_rel: LibraryRelPath
     if isinstance(rel, LibraryRelPath):
         lib_rel = rel
@@ -65,9 +69,11 @@ def parse_file_path(rel: Union[LibraryRelPath, RepoRelPath], extension_config: E
     file_type: RoleInGroup
     group: FileGroup
     if p.is_relative_to(public_include_dir) and p.suffix == '.toml':
+        pp = PurePath(p.stem)
+        assert pp.suffix == '.dtg'
         file_type = RoleInGroup.DTGEN_TOML
         group = FileGroup(
-            p.parent.relative_to(public_include_dir) / p.stem,
+            p.parent.relative_to(public_include_dir) / pp.stem,
             library,
         )
     elif p.is_relative_to(public_include_dir) and p.suffix == header_extension:
@@ -89,12 +95,16 @@ def parse_file_path(rel: Union[LibraryRelPath, RepoRelPath], extension_config: E
         pp = p.parent / p.stem
         if pp.suffix == '.dtg':
             file_type = RoleInGroup.GENERATED_SOURCE
+            group = FileGroup(
+                p.parent.relative_to(src_dir) / pp.stem,
+                library,
+            )
         else:
             file_type = RoleInGroup.SOURCE
-        group = FileGroup(
-            p.parent.relative_to(src_dir) / p.stem,
-            library,
-        )
+            group = FileGroup(
+                p.parent.relative_to(src_dir) / p.stem,
+                library,
+            )
     elif p.is_relative_to(test_dir):
         group=FileGroup(
             p.parent.relative_to(test_dir) / p.stem,

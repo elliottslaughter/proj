@@ -37,7 +37,7 @@ class FileGroup:
 
     @property
     def generated_source(self) -> 'File':
-        return File(self, RoleInGroup.GENERATED_HEADER)
+        return File(self, RoleInGroup.GENERATED_SOURCE)
 
     @property
     def dtgen_toml(self) -> 'File':

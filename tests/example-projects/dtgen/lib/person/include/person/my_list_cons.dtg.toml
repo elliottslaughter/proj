@@ -1,5 +1,6 @@
 namespace = "FlexFlow"
 name = "MyListCons"
+type = "struct"
 features = [
   "eq",
   "ord",

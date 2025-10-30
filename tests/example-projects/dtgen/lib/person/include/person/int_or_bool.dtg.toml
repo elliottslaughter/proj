@@ -1,5 +1,6 @@
 namespace = "FlexFlow"
 name = "IntOrBool"
+type = "variant"
 docstring = "An int or a bool"
 features = [
   "eq",

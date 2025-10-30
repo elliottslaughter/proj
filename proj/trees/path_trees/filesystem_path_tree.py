@@ -2,14 +2,19 @@ from pathlib import PurePath, Path
 from dataclasses import dataclass
 from typing import (
     Iterator,
+    Self,
+    TYPE_CHECKING,
 )
-from proj.paths import AbsolutePath
 from ..path_tree import MutablePathTree
 import os
+import copy
 
-@dataclass(frozen=True)
+if TYPE_CHECKING:
+    from proj.paths import AbsolutePath
+
+@dataclass(eq=True)
 class FilesystemPathTree(MutablePathTree):
-    _root: AbsolutePath
+    _root: 'AbsolutePath'
 
     def has_path(self, p: PurePath) -> bool:
         return (self._root / p).raw.exists()
@@ -49,9 +54,11 @@ class FilesystemPathTree(MutablePathTree):
         assert not self.has_path(dst)
         Path(self._root.raw / src).rename(self._root.raw / dst)
 
-    def restrict_to_subdir(self, p: PurePath) -> 'FilesystemPathTree':
+    def restrict_to_subdir(self, p: PurePath) -> Self:
         assert self.has_dir(p)
-        return FilesystemPathTree(self._root / p)
+        result = copy.deepcopy(self)
+        result._root = self._root / p
+        return result
 
     def files(self) -> Iterator[PurePath]:
         base = self._root.raw

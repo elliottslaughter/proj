@@ -1,5 +1,6 @@
 namespace = "FlexFlow"
 name = "MyListEmpty"
+type = "struct"
 features = [
   "eq",
   "ord",

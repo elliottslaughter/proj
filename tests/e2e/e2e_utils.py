@@ -6,9 +6,15 @@ from typing import (
 )
 import os
 import immutables as imm
+import sys
 
 def require_successful(r: subprocess.CompletedProcess) -> subprocess.CompletedProcess:
-    assert r.returncode == 0, r.stderr
+    if r.returncode != 0:
+        print('Invocation stderr:', file=sys.stderr)
+        print(r.stderr, file=sys.stderr)
+        print('Invocation stdout:', file=sys.stdout)
+        print(r.stdout, file=sys.stdout)
+    assert r.returncode == 0
     return r
 
 def require_fail(r: subprocess.CompletedProcess) -> subprocess.CompletedProcess:
@@ -19,7 +25,7 @@ def run(dir: Path, args: Iterable[str], capture: bool = True, env: Mapping[str, 
     _args = list(args)
     cmd = ['proj', _args[0]]
     if verbose:
-        cmd.append('-v')
+        cmd.append('-vv')
     cmd = [*cmd, *_args[1:]]
     print(f'Running {cmd=}')
     return subprocess.run(cmd, capture_output=capture, text=True, cwd=dir, env={**os.environ, **env})

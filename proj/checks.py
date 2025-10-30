@@ -39,7 +39,11 @@ from .layout import (
     UnrecognizedFile,
     IncompleteGroup,
 )
-from .trees import PathTree
+from .trees import (
+    PathTree,
+    MutableFileTreeWithMtime,
+    load_filesystem_for_repo,
+)
 
 _l = logging.getLogger(__name__)
 
@@ -54,11 +58,17 @@ def run_layout_check(
     repo_path_tree: PathTree,
     extension_config: ExtensionConfig,
 ) -> None:
+    failed = False
     for error in _run_layout_check(repo_path_tree, extension_config):
         if isinstance(error, IncompleteGroup):
             _l.warn('Incomplete file group %s: missing %s', error.file_group, ', '.join(map(str, (error.missing))))
+            failed = True
         elif isinstance(error, UnrecognizedFile):
             _l.warn('Unrecognized file at %s', error.path)
+            failed = True
+    if failed:
+        fail_with_error("Layout check failed.")
+
 
 def run_formatter_check(
     config: ProjectConfig, files: Optional[Sequence[PathLike[str]]] = None
@@ -70,27 +80,33 @@ def run_formatter_check(
 
 
 def run_check(config: ProjectConfig, check: Check, verbosity: int) -> None:
+    repo_file_tree = load_filesystem_for_repo(config.repo)
+
     if check == Check.FORMAT:
         run_formatter_check(config)
+    elif check == Check.LAYOUT:
+        run_layout_check(repo_file_tree, config.extension_config)
     elif check == Check.CPU_CI:
         run_cpu_ci(config, verbosity=verbosity)
-    else:
-        assert check == Check.GPU_CI
+    elif check == Check.GPU_CI:
         run_gpu_ci(config, verbosity=verbosity)
 
 
-def run_build_check(config: ProjectConfig, verbosity: int) -> None:
+def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int) -> None:
     run_dtgen(
-        root=config.base,
-        config=config,
+        repo=config.repo,
+        repo_file_tree=repo_file_tree,
         force=True,
+        extension_config=config.extension_config,
+        ifndef_base=config.ifndef_name,
     )
     cmake_all(config, fast=False, trace=False)
 
     build_targets(
+        repo=config.repo, 
+        repo_path_tree=repo_file_tree,
         config=config,
         targets=config.all_build_targets,
-        dtgen_skip=True,
         jobs=multiprocessing.cpu_count(),
         verbosity=verbosity,
         build_dir=config.debug_build_dir,
@@ -98,14 +114,18 @@ def run_build_check(config: ProjectConfig, verbosity: int) -> None:
 
 
 def run_cpu_ci(config: ProjectConfig, verbosity: int) -> None:
+    repo_file_tree = load_filesystem_for_repo(config.repo)
+
     _l.info("Running formatter check...")
     run_formatter_check(config)
 
     _l.info("Running dtgen --force...")
     run_dtgen(
-        root=config.base,
-        config=config,
+        repo=config.repo,
+        repo_file_tree=repo_file_tree,
         force=True,
+        extension_config=config.extension_config,
+        ifndef_base=config.ifndef_name,
     )
     _l.info("Running cmake...")
     cmake_all(config, fast=False, trace=False)
@@ -113,9 +133,10 @@ def run_cpu_ci(config: ProjectConfig, verbosity: int) -> None:
     cpu_build_targets = [t.build_target for t in config.all_cpu_test_targets]
     _l.info("Building %s", cpu_build_targets)
     build_targets(
+        repo=config.repo,
+        repo_path_tree=repo_file_tree,
         config=config,
         targets=cpu_build_targets,
-        dtgen_skip=True,
         jobs=multiprocessing.cpu_count(),
         verbosity=verbosity,
         build_dir=config.coverage_build_dir,
@@ -134,11 +155,15 @@ def run_cpu_ci(config: ProjectConfig, verbosity: int) -> None:
 
 
 def run_gpu_ci(config: ProjectConfig, verbosity: int) -> None:
+    repo_file_tree = load_filesystem_for_repo(config.repo)
+
     _l.info("Running dtgen")
     run_dtgen(
-        root=config.base,
-        config=config,
+        repo=config.repo,
+        repo_file_tree=repo_file_tree,
         force=True,
+        extension_config=config.extension_config,
+        ifndef_base=config.ifndef_name,
     )
     _l.info("Running cmake")
     cmake_all(config, fast=False, trace=False)
@@ -146,9 +171,10 @@ def run_gpu_ci(config: ProjectConfig, verbosity: int) -> None:
     cuda_build_targets = [t.build_target for t in config.all_cuda_test_targets]
     _l.info("Building targets %", cuda_build_targets)
     build_targets(
+        repo=config.repo,
+        repo_path_tree=repo_file_tree,
         config=config,
         targets=cuda_build_targets,
-        dtgen_skip=True,
         jobs=multiprocessing.cpu_count(),
         verbosity=verbosity,
         build_dir=config.debug_build_dir,
