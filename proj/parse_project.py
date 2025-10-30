@@ -28,9 +28,11 @@ def _possible_config_paths(d: PurePath) -> Iterator[PurePath]:
 def find_repo(p: PurePath, path_tree: PathTree) -> Optional[Repo]:
     return map_optional(parse_repo_path(p, path_tree), lambda repo_rel: repo_rel.repo)
 
-def parse_repo_path(p: PurePath, path_tree: PathTree) -> Optional[RepoRelPath]:
+def parse_repo_path(p: PurePath, path_tree_or_repo: Union[PathTree, Repo]) -> Optional[RepoRelPath]:
+    if isinstance(path_tree_or_repo, Repo):
+        return RepoRelPath(p.relative_to(path_tree_or_repo.path), path_tree_or_repo)
     for possible_config in _possible_config_paths(p):
-        if path_tree.has_file(possible_config):
+        if path_tree_or_repo.has_file(possible_config):
             repo_root = possible_config.parent
             return RepoRelPath(p.relative_to(repo_root), Repo(repo_root))
     return None
@@ -91,7 +93,7 @@ def parse_file_path(
                 library,
             )
 
-    elif p.is_relative_to(src_dir):
+    elif p.is_relative_to(src_dir) and p != src_dir:
         pp = p.parent / p.stem
         if pp.suffix == '.dtg':
             file_type = RoleInGroup.GENERATED_SOURCE
@@ -99,12 +101,14 @@ def parse_file_path(
                 p.parent.relative_to(src_dir) / pp.stem,
                 library,
             )
-        else:
+        elif p.suffix == extension_config.src_extension:
             file_type = RoleInGroup.SOURCE
             group = FileGroup(
                 p.parent.relative_to(src_dir) / p.stem,
                 library,
             )
+        else: 
+            return None
     elif p.is_relative_to(test_dir):
         group=FileGroup(
             p.parent.relative_to(test_dir) / p.stem,

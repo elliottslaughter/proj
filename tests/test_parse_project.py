@@ -6,6 +6,7 @@ from typing import (
 )
 from proj.config_file import ExtensionConfig
 from proj.paths import (
+    Repo,
     RepoRelPath,
     File,
     FileGroup,
@@ -15,6 +16,7 @@ from proj.paths import (
 )
 from pathlib import PurePath
 from proj.parse_project import (
+    parse_repo_path,
     parse_file_path,
 )
 
@@ -22,6 +24,20 @@ EXTENSION_CONFIG = ExtensionConfig(
     header_extension='.h',
     src_extension='.cc',
 )
+
+@pytest.mark.parametrize("input,correct", [
+    (
+        "my_repo/lib/example/src/example/something",
+        "lib/example/src/example/something"
+    )
+])
+def get_parse_repo_path_with_repo_arg(input_str: str, correct_str: str) -> None:
+    repo = Repo(PurePath("my_repo"))
+
+    result = parse_repo_path(PurePath(input_str), repo)
+    correct = RepoRelPath(PurePath(correct_str), repo)
+
+    assert result == correct
 
 @pytest.mark.parametrize("input,extension_config,correct", [
     (
@@ -71,6 +87,26 @@ EXTENSION_CONFIG = ExtensionConfig(
             FileGroup(PurePath('thing'), Library('example')),
             RoleInGroup.BENCHMARK,
         ),
+    ),
+    (
+        RepoRelPath(PurePath('lib/example/include/example/')),
+        EXTENSION_CONFIG,
+        None,
+    ),
+    (
+        RepoRelPath(PurePath('lib/example/src/example/')),
+        EXTENSION_CONFIG,
+        None,
+    ),
+    (
+        RepoRelPath(PurePath('lib/example/src/')),
+        EXTENSION_CONFIG,
+        None,
+    ),
+    (
+        RepoRelPath(PurePath('lib/example/src/example/something')),
+        EXTENSION_CONFIG,
+        None,
     ),
 ])
 def test_parse_file_path(

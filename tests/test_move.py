@@ -18,6 +18,7 @@ from proj.config_file import (
     ExtensionConfig,
 )
 from pathlib import PurePath
+import copy
 
 EXTENSION_CONFIG = ExtensionConfig(
     '.h',
@@ -80,8 +81,7 @@ def test_get_move_plan() -> None:
 
     assert result == correct
 
-def test_perform_file_group_move(
-) -> None:
+def test_perform_file_group_move() -> None:
     repo_path_tree = EmulatedPathTree.from_map({
         PurePath(p): PathType.FILE 
         for p in [
@@ -132,6 +132,94 @@ def test_perform_file_group_move(
             'lib/person/test/src/person/',
             'lib/person/benchmark/src/person/',
         ]
+    )
+
+    assert repo_path_tree == correct
+
+def test_perform_file_group_move_to_directory() -> None:
+    repo_path_tree = EmulatedPathTree.from_map({
+        PurePath(p): PathType.FILE 
+        for p in [
+            'CMakeLists.txt',
+            '.proj.toml',
+            'lib/CMakeLists.txt',
+            'lib/person/CMakeLists.txt',
+            'lib/person/include/person/example_variant.dtg.toml',
+            'lib/person/src/person/out_of_date2.dtg.cc',
+            'lib/airplane/include/airplane/my_airplane.dtg.toml',
+            'lib/person/include/person/example_struct.dtg.toml',
+            'lib/person/include/person/example_struct.h',
+            'lib/person/src/person/example_struct.cc',
+            'lib/person/test/src/person/example_struct.cc',
+            'lib/person/benchmark/src/person/example_struct.cc',
+        ]
+    })
+
+    src = RepoRelPath(PurePath('lib/person/src/person/example_struct.cc'))
+    dst = RepoRelPath(PurePath('lib/airplane/src/airplane/'))
+
+    perform_file_group_move(
+        EXTENSION_CONFIG,
+        repo_path_tree,
+        src,
+        dst,
+        dry_run=False,
+    )
+    correct = EmulatedPathTree.from_lists(
+        files=[
+            'CMakeLists.txt',
+            '.proj.toml',
+            'lib/CMakeLists.txt',
+            'lib/person/CMakeLists.txt',
+            'lib/person/include/person/example_variant.dtg.toml',
+            'lib/person/src/person/out_of_date2.dtg.cc',
+            'lib/airplane/include/airplane/my_airplane.dtg.toml',
+            'lib/airplane/include/airplane/example_struct.dtg.toml',
+            'lib/airplane/include/airplane/example_struct.h',
+            'lib/airplane/src/airplane/example_struct.cc',
+            'lib/airplane/test/src/airplane/example_struct.cc',
+            'lib/airplane/benchmark/src/airplane/example_struct.cc',
+        ],
+        dirs=[
+            'lib/person/include/person/',
+            'lib/person/src/person/',
+            'lib/person/test/src/person/',
+            'lib/person/benchmark/src/person/',
+        ]
+    )
+
+    assert repo_path_tree == correct
+
+def test_perform_file_group_move_to_current_location() -> None:
+    repo_path_tree = EmulatedPathTree.from_map({
+        PurePath(p): PathType.FILE 
+        for p in [
+            'CMakeLists.txt',
+            '.proj.toml',
+            'lib/CMakeLists.txt',
+            'lib/person/CMakeLists.txt',
+            'lib/person/include/person/example_variant.dtg.toml',
+            'lib/person/src/person/out_of_date2.dtg.cc',
+            'lib/airplane/include/airplane/my_airplane.dtg.toml',
+            'lib/person/include/person/example_struct.dtg.toml',
+            'lib/person/include/person/example_struct.h',
+            'lib/person/src/person/example_struct.cc',
+            'lib/person/test/src/person/example_struct.cc',
+            'lib/person/benchmark/src/person/example_struct.cc',
+        ]
+    })
+
+    correct = copy.deepcopy(repo_path_tree)
+
+    src = RepoRelPath(PurePath('lib/person/src/person/example_struct.cc'))
+    dst = src
+
+    perform_file_group_move(
+        EXTENSION_CONFIG,
+        repo_path_tree,
+        src,
+        dst,
+        dry_run=False,
     )
 
     assert repo_path_tree == correct

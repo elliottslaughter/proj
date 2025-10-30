@@ -59,6 +59,9 @@ def get_move_plan(
 ) -> Set[ConcreteMove]:
     assert src_file.role == dst_file.role
 
+    if src_file.group == dst_file.group:
+        return set()
+
     return set(get_moves_for_group(repo_path_tree, src_file.group, dst_file.group, extension_config))
 
 def pretty_print_move_plan(move_plan: Set[ConcreteMove]) -> str:
@@ -79,7 +82,10 @@ def perform_file_group_move(
 ) -> None:
     src_file = parse_file_path(src, extension_config)
     assert src_file is not None
+
     dst_file = parse_file_path(dst, extension_config)
+    if dst_file is None:
+        dst_file = parse_file_path(dst / src.name, extension_config)
     assert dst_file is not None
 
     move_plan = get_move_plan(repo_path_tree, src_file, dst_file, extension_config)
