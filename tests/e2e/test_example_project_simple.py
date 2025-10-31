@@ -779,12 +779,55 @@ def test_move() -> None:
             assert (d / dst).read_bytes() == pre_contents[src]
 
         require_successful(run(d, [
-            'move',
+            'mv',
             str(src_path),
             str(dst_path),
         ]))
 
         check_moved(src_path, dst_path)
+        check_moved(src_cc_path, dst_cc_path)
+        check_moved(src_test_path, dst_test_path)
+        check_moved(src_toml_path, dst_toml_path)
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_move_to_directory() -> None:
+    with project_instance() as d:
+        src_hdr_path = Path('./lib/lib1/include/lib1/example_enum.h')
+        src_cc_path = Path('./lib/lib1/src/lib1/example_enum.cc')
+        src_test_path = Path('./lib/lib1/test/src/lib1/example_enum.cc')
+        src_toml_path = Path('./lib/lib1/include/lib1/example_enum.dtg.toml')
+        all_src_paths = [
+            src_hdr_path,
+            src_cc_path,
+            src_test_path,
+            src_toml_path,
+        ]
+
+        dst_hdr_path = Path('./lib/lib2/include/lib2/example_enum.h')
+        dst_cc_path = Path('./lib/lib2/src/lib2/example_enum.cc')
+        dst_test_path = Path('./lib/lib2/test/src/lib2/example_enum.cc')
+        dst_toml_path = Path('./lib/lib2/include/lib2/example_enum.dtg.toml')
+
+        for src_p in all_src_paths:
+            assert (d / src_p).is_file()
+
+        pre_contents = {
+            p: (d / p).read_bytes() for p in all_src_paths
+        }
+
+        def check_moved(src: Path, dst: Path) -> None:
+            assert not (d / src).is_file()
+            assert (d / dst).is_file()
+            assert (d / dst).read_bytes() == pre_contents[src]
+
+        require_successful(run(d, [
+            'mv',
+            str(src_hdr_path),
+            str(dst_hdr_path.parent),
+        ]))
+
+        check_moved(src_hdr_path, dst_hdr_path)
         check_moved(src_cc_path, dst_cc_path)
         check_moved(src_test_path, dst_test_path)
         check_moved(src_toml_path, dst_toml_path)

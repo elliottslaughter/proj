@@ -695,7 +695,6 @@ def main_move(args: MainMoveArgs) -> int:
     repo_path_tree = load_filesystem_for_repo(config.repo)
 
     assert args.src.is_file()
-    assert not args.dst.exists()
     perform_file_group_move(
         extension_config=config.extension_config,
         repo_path_tree=repo_path_tree,
@@ -969,7 +968,7 @@ def make_parser() -> argparse.ArgumentParser:
     check_p.add_argument("check", choices=list(sorted(Check)))
     add_verbosity_args(check_p)
 
-    move_p = subparsers.add_parser("move")
+    move_p = subparsers.add_parser("mv")
     set_main_signature(move_p, main_move, MainMoveArgs)
     move_p.add_argument("src", type=Path)
     move_p.add_argument("dst", type=Path)
