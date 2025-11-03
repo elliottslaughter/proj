@@ -1,11 +1,14 @@
 from typing import (
     Iterator,
     Self,
+    Sequence,
+    Union,
 )
 from pathlib import (
     PurePath,
 )
 import abc
+from dataclasses import dataclass
 
 class PathTree(abc.ABC): 
     @abc.abstractmethod
@@ -36,6 +39,10 @@ class PathTree(abc.ABC):
     def files(self) -> Iterator[PurePath]:
         ...
 
+    @abc.abstractmethod
+    def dirs(self) -> Iterator[PurePath]:
+        ...
+
 class MutablePathTree(PathTree):
     @abc.abstractmethod
     def mkdir(
@@ -54,4 +61,22 @@ class MutablePathTree(PathTree):
     def rm_file(self, p: PurePath) -> None:
         ...
 
+@dataclass(frozen=True)
+class MoveTrace:
+    src: PurePath
+    dst: PurePath
 
+@dataclass(frozen=True)
+class MkDirTrace:
+    path: PurePath
+
+@dataclass(frozen=True)
+class RmFileTrace:
+    path: PurePath
+
+class TracedMutablePathTree(MutablePathTree):
+    @abc.abstractmethod
+    def get_path_trace(
+        self,
+    ) -> Sequence[Union[MoveTrace, MkDirTrace, RmFileTrace]]:
+        ...

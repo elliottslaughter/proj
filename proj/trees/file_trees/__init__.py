@@ -1,2 +1,3 @@
 from .emulated_file_tree import EmulatedFileTree
 from .filesystem_file_tree import FilesystemFileTree
+from .traced_file_tree import MutableTracedFileTreeByWrapping

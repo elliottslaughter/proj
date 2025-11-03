@@ -65,7 +65,7 @@ from ..unparse_project import (
 from ..parse_project import (
     parse_file_path,
 )
-from proj.file_group_info import (
+from proj.includes import (
     get_generated_include_path,
 )
 

@@ -8,7 +8,8 @@ from typing import (
     Iterator,
 )
 from functools import reduce
-from pathlib import PurePath
+from pathlib import PurePath, Path
+import re
 
 T = TypeVar("T")
 T1 = TypeVar("T1")
@@ -65,3 +66,20 @@ def nearest_common_ancestor(lhs: PurePath, rhs: PurePath) -> PurePath:
 
 def num_true(c: Iterable[bool]) -> int:
     return sum(int(b) for b in c)
+
+P = TypeVar('P', PurePath, Path)
+
+def with_suffixes(p: P, suffs: str) -> P:
+    name = p.name
+    while "." in name:
+        name = name[: name.rfind(".")]
+    return p.with_name(name + suffs)
+
+def with_suffix_appended(p: P, suff: str) -> P:
+    assert suff.startswith(".")
+    return p.with_name(p.name + suff)
+
+def with_suffix_removed(p: P, n: int = 1) -> P:
+    for _ in range(n):
+        p = p.with_suffix("")
+    return p

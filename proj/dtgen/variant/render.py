@@ -34,21 +34,22 @@ import proj.dtgen.render_utils as render_utils
 import io
 import itertools
 import string
+from pathlib import PurePath
 
 
 def header_includes_for_feature(feature: Feature) -> Sequence[IncludeSpec]:
     if feature == Feature.HASH:
-        return [IncludeSpec(path="functional", system=True)]
+        return [IncludeSpec(path=PurePath("functional"), system=True)]
     elif feature == Feature.JSON:
         return [
-            IncludeSpec(path="nlohmann/json.hpp", system=True),
+            IncludeSpec(path=PurePath("nlohmann/json.hpp"), system=True),
         ]
     elif feature == Feature.RAPIDCHECK:
-        return [IncludeSpec(path="rapidcheck.h", system=True)]
+        return [IncludeSpec(path=PurePath("rapidcheck.h"), system=True)]
     elif feature == Feature.FMT:
         return [
-            IncludeSpec(path="ostream", system=True),
-            IncludeSpec(path="fmt/format.h", system=True),
+            IncludeSpec(path=PurePath("ostream"), system=True),
+            IncludeSpec(path=PurePath("fmt/format.h"), system=True),
         ]
     else:
         return []
@@ -57,7 +58,7 @@ def header_includes_for_feature(feature: Feature) -> Sequence[IncludeSpec]:
 def source_includes_for_feature(feature: Feature) -> Sequence[IncludeSpec]:
     if feature == Feature.FMT:
         return [
-            IncludeSpec(path="sstream", system=True),
+            IncludeSpec(path=PurePath("sstream"), system=True),
             # IncludeSpec(path='utils/fmt.h', system=False),
         ]
     else:
@@ -79,13 +80,13 @@ def infer_header_includes(spec: VariantSpec) -> Sequence[IncludeSpec]:
         set(
             [
                 *spec.includes,
-                IncludeSpec(path="variant", system=True),
-                IncludeSpec(path="type_traits", system=True),
-                IncludeSpec(path="cstddef", system=True),
-                IncludeSpec(path="stdexcept", system=True),
-                IncludeSpec(path="optional", system=True),
-                IncludeSpec(path="fmt/format.h", system=True),
-                IncludeSpec(path="libassert/assert.hpp", system=True),
+                IncludeSpec(path=PurePath("variant"), system=True),
+                IncludeSpec(path=PurePath("type_traits"), system=True),
+                IncludeSpec(path=PurePath("cstddef"), system=True),
+                IncludeSpec(path=PurePath("stdexcept"), system=True),
+                IncludeSpec(path=PurePath("optional"), system=True),
+                IncludeSpec(path=PurePath("fmt/format.h"), system=True),
+                IncludeSpec(path=PurePath("libassert/assert.hpp"), system=True),
                 *header_includes_for_features(spec=spec),
             ]
         )

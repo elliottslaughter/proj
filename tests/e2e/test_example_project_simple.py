@@ -848,6 +848,122 @@ def test_check_layout() -> None:
             'layout',
         ])
 
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_check_ifndef() -> None:
+    with project_instance() as d:
+        check_cmd_succeeds(d, [
+            'check',
+            'ifndef',
+        ])
+
+        lib2_header_path = d / 'lib/lib2/include/lib2/lib2.h'
+        lib2_header_contents = lib2_header_path.read_text()
+        modified = lib2_header_contents.replace('_TEST_PROJECT_1_LIB_LIB2_INCLUDE_LIB2_LIB2_H', '_SOME_OTHER_IFNDEF_H')
+        assert lib2_header_contents != modified, "Contents not changed. This test probably needs to be updated!"
+        lib2_header_path.write_text(modified)
+
+        check_cmd_fails(d, [
+            'check',
+            'ifndef',
+        ])
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_move_with_ifndef_fix() -> None:
+    with project_instance() as d:
+        check_cmd_succeeds(d, [
+            'check',
+            'ifndef',
+        ])
+
+        src_path = Path('./lib/lib1/include/lib1/example_enum.h')
+        dst_path = Path('./lib/lib1/include/lib1/example_enum_moved.h')
+
+        require_successful(run(d, [
+            'mv',
+            str(src_path),
+            str(dst_path),
+        ]))
+
+        check_cmd_fails(d, [
+            'check',
+            'ifndef',
+        ])
+
+        dst2_path = Path('./lib/lib1/include/lib1/example_enum_moved_again.h')
+
+        require_successful(run(d, [
+            'mv',
+            str(dst_path),
+            str(dst2_path),
+        ]))
+
+        check_cmd_succeeds(d, [
+            'check',
+            'ifndef',
+        ])
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_check_include() -> None:
+    with project_instance() as d:
+        check_cmd_succeeds(d, [
+            'check',
+            'include',
+        ])
+        
+        lib2_src_path = d / 'lib/lib2/src/lib2/lib2.cc'
+        lib2_src_contents = lib2_src_path.read_text()
+        modified = lib2_src_contents.replace('#include "lib2/lib2.h"', '#include "lib2/lib3.h"')
+        assert lib2_src_contents != modified, "Contents not changed. This test probably needs to be updated!"
+        lib2_src_path.write_text(modified)
+
+        check_cmd_fails(d, [
+            'check',
+            'include',
+        ])
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_move_with_include_fix() -> None:
+    src_path = Path('./lib/lib1/include/lib1/example_enum.h')
+    dst_path = Path('./lib/lib1/include/lib1/example_enum_moved.h')
+
+    with project_instance() as d:
+        check_cmd_succeeds(d, [
+            'check',
+            'include',
+        ])
+
+        require_successful(run(d, [
+            'mv',
+            str(src_path),
+            str(dst_path),
+        ]))
+
+        check_cmd_fails(d, [
+            'check',
+            'include',
+        ])
+
+    with project_instance() as d:
+        check_cmd_succeeds(d, [
+            'check',
+            'include',
+        ])
+
+        require_successful(run(d, [
+            'mv',
+            str(src_path),
+            str(dst_path),
+        ]))
+
+        check_cmd_succeeds(d, [
+            'check',
+            'include',
+        ])
+
 
 @pytest.mark.e2e
 @pytest.mark.slow

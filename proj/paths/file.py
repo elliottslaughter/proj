@@ -18,4 +18,4 @@ class File:
         return self.group.library.repo
 
     def __str__(self) -> str:
-        return f'<{self.role.shortname}>/{self.group.group_path}'
+        return f'{self.group}:<{self.role.shortname}>'

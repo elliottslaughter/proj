@@ -7,45 +7,17 @@ from proj.config_file import ExtensionConfig
 from pathlib import PurePath
 from proj.file_group_info import (
     get_file_group_info,
+    FileGroupInfo,
+)
+from proj.includes import (
     get_include_path,
     get_generated_include_path,
-    FileGroupInfo,
 )
 
 EXTENSION_CONFIG = ExtensionConfig(
     '.h',
     '.cc',
 )
-
-def test_get_include_path() -> None:
-    file_group = FileGroup(
-        PurePath('a/b'),
-        Library('c'),
-    )
-
-    result = get_include_path(
-        file_group, 
-        header_extension='.hhh',
-    )
-
-    correct = PurePath('c/a/b.hhh')
-
-    assert result == correct
-
-def test_get_generated_include_path() -> None:
-    file_group = FileGroup(
-        PurePath('a/b'),
-        Library('c'),
-    )
-
-    result = get_generated_include_path(
-        file_group, 
-        header_extension='.hhh',
-    )
-
-    correct = PurePath('c/a/b.dtg.hhh')
-
-    assert result == correct
 
 def test_get_file_group_info() -> None:
     file_group = FileGroup(

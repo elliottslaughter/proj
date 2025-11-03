@@ -104,10 +104,10 @@ def test_perform_file_group_move() -> None:
     dst = RepoRelPath(PurePath('lib/airplane/src/airplane/example_airplane.cc'))
 
     perform_file_group_move(
-        EXTENSION_CONFIG,
         repo_path_tree,
         src,
         dst,
+        EXTENSION_CONFIG,
         dry_run=False,
     )
 
@@ -159,10 +159,10 @@ def test_perform_file_group_move_to_directory() -> None:
     dst = RepoRelPath(PurePath('lib/airplane/src/airplane/'))
 
     perform_file_group_move(
-        EXTENSION_CONFIG,
         repo_path_tree,
         src,
         dst,
+        EXTENSION_CONFIG,
         dry_run=False,
     )
     correct = EmulatedPathTree.from_lists(
@@ -213,10 +213,10 @@ def test_perform_file_group_move_to_existing_directory() -> None:
     dst = RepoRelPath(PurePath('lib/airplane/include/airplane/'))
 
     perform_file_group_move(
-        EXTENSION_CONFIG,
         repo_path_tree,
         src,
         dst,
+        EXTENSION_CONFIG,
         dry_run=False,
     )
     correct = EmulatedPathTree.from_lists(
@@ -270,10 +270,10 @@ def test_perform_file_group_move_to_current_location() -> None:
     dst = src
 
     perform_file_group_move(
-        EXTENSION_CONFIG,
         repo_path_tree,
         src,
         dst,
+        EXTENSION_CONFIG,
         dry_run=False,
     )
 

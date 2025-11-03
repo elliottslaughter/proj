@@ -8,8 +8,12 @@ from .json import (
 from .paths import (
     FileGroup,
 )
-from .unparse_project import get_fullpath, get_repo_rel_path
+from .unparse_project import get_repo_rel_path
 from .config_file import ExtensionConfig, get_ifndef_for_path
+from .includes import (
+    get_generated_include_path,
+    get_include_path,
+)
 
 @dataclass(frozen=True, order=True)
 class FileGroupInfo:
@@ -37,22 +41,6 @@ class FileGroupInfo:
             "generated_include": str(self.generated_include),
             "include": str(self.include),
         }
-
-def get_include_path(file_group: FileGroup, header_extension: str) -> PurePath:
-    assert file_group.library is not None
-    return (
-        file_group.library.name 
-        / file_group.group_path.parent 
-        / (file_group.group_path.name + header_extension)
-    )
-
-def get_generated_include_path(file_group: FileGroup, header_extension: str) -> PurePath:
-    assert file_group.library is not None
-    return (
-        file_group.library.name 
-        / file_group.group_path.parent 
-        / (file_group.group_path.name + '.dtg' + header_extension)
-    )
 
 def get_file_group_info(
     file_group: FileGroup,

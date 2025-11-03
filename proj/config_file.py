@@ -595,8 +595,10 @@ def with_suffix_appended(p: Path, suff: str) -> Path:
     return p.with_name(p.name + suff)
 
 
-def with_suffix_removed(p: Path) -> Path:
-    return p.with_suffix("")
+def with_suffices_removed(p: Path, num: int = 1) -> Path:
+    for _ in range(num):
+        p = p.with_suffix("")
+    return p
 
 def get_ifndef_for_path(ifndef_base: str, repo_rel: RepoRelPath) -> str:
     unfixed = f"_{ifndef_base}_" + str(repo_rel.path)

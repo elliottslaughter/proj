@@ -93,7 +93,7 @@ from .target_resolution import (
     fully_resolve_run_target,
 )
 from .move import (
-    perform_file_group_move,
+    perform_file_group_move_with_include_and_ifndef_update,
 )
 from .trees import (
     load_root_filesystem,
@@ -681,6 +681,8 @@ class MainMoveArgs:
     dst: Path
     verbosity: int
     dry_run: bool
+    skip_update_includes: bool
+    skip_update_ifndefs: bool
 
 
 def main_move(args: MainMoveArgs) -> int:
@@ -695,11 +697,14 @@ def main_move(args: MainMoveArgs) -> int:
     repo_path_tree = load_filesystem_for_repo(config.repo)
 
     assert args.src.is_file()
-    perform_file_group_move(
-        extension_config=config.extension_config,
+    perform_file_group_move_with_include_and_ifndef_update( 
         repo_path_tree=repo_path_tree,
         src=src_repo_rel,
         dst=dst_repo_rel,
+        extension_config=config.extension_config,
+        ifndef_base=config.ifndef_name,
+        update_includes=not args.skip_update_includes,
+        update_ifndefs=not args.skip_update_ifndefs,
         dry_run=args.dry_run,
     )
 
@@ -973,6 +978,8 @@ def make_parser() -> argparse.ArgumentParser:
     move_p.add_argument("src", type=Path)
     move_p.add_argument("dst", type=Path)
     move_p.add_argument("--dry-run", "-n", action="store_true")
+    move_p.add_argument("--skip-update-includes", action="store_true")
+    move_p.add_argument("--skip-update-ifndefs", action="store_true")
     add_verbosity_args(move_p)
 
     lint_p = subparsers.add_parser("lint")

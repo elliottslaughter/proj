@@ -36,13 +36,32 @@ from .failure import (
 from . import subprocess_trace as subprocess
 from .layout import (
     run_layout_check as _run_layout_check,
+    scan_repo_for_files,
     UnrecognizedFile,
     IncompleteGroup,
 )
 from .trees import (
     PathTree,
+    FileTree,
     MutableFileTreeWithMtime,
     load_filesystem_for_repo,
+)
+from .paths import (
+    File,
+    RoleInGroup,
+)
+from .ifndef import (
+    get_current_ifndef,
+    get_correct_ifndef_for_path,
+)
+from .unparse_project import (
+    get_repo_rel_path,
+)
+from .includes import (
+    get_include_path,
+    get_generated_include_path,
+    find_includes_in_cpp_file_contents,
+    get_include_path_for_file,
 )
 
 _l = logging.getLogger(__name__)
@@ -53,6 +72,8 @@ class Check(StrEnum):
     CPU_CI = "cpu-ci"
     GPU_CI = "gpu-ci"
     LAYOUT = "layout"
+    INCLUDE = "include"
+    IFNDEF = "ifndef"
 
 def run_layout_check(
     repo_path_tree: PathTree,
@@ -69,6 +90,62 @@ def run_layout_check(
     if failed:
         fail_with_error("Layout check failed.")
 
+def run_include_check(
+    repo_path_tree: FileTree,
+    extension_config: ExtensionConfig,
+) -> None:
+    valid_include_paths = set()
+    for file in scan_repo_for_files(repo_path_tree, extension_config):
+        if isinstance(file, File):
+            match file.role:
+                case RoleInGroup.PUBLIC_HEADER:
+                    valid_include_paths.add(get_include_path(file.group, header_extension=extension_config.header_extension))
+                case RoleInGroup.DTGEN_TOML:
+                    valid_include_paths.add(get_generated_include_path(file.group, header_extension=extension_config.header_extension))
+    
+    failed = False
+    for file in scan_repo_for_files(repo_path_tree, extension_config):
+        if isinstance(file, File):
+            match file.role:
+                case RoleInGroup.DTGEN_TOML:
+                    valid_include_paths.add(get_include_path(file.group, header_extension=extension_config.header_extension))
+                case _:
+                    contents = repo_path_tree.get_file_contents(
+                        get_repo_rel_path(file, extension_config).path 
+                    )
+                    includes = find_includes_in_cpp_file_contents(
+                        contents,
+                        header_extension=extension_config.header_extension, 
+                    )
+                    for include in includes:
+                        if isinstance(include, File):
+                            include_path = get_include_path_for_file(include, header_extension=extension_config.header_extension)
+                            if include_path not in valid_include_paths:
+                                _l.warning('Found invalid include in %s: %s does not exist', file, include)
+                                failed = True
+    if failed:
+        fail_with_error("Include check failed.")
+          
+
+def run_ifndef_check(
+    repo_path_tree: FileTree,
+    ifndef_base: str,
+    extension_config: ExtensionConfig,
+) -> None:
+    failed = False
+    for file in scan_repo_for_files(repo_path_tree, extension_config):
+        if isinstance(file, File):
+            if file.role != RoleInGroup.PUBLIC_HEADER:
+                continue
+            file_path = get_repo_rel_path(file, extension_config)
+            contents = repo_path_tree.get_file_contents(file_path.path)
+            curr_ifndef = get_current_ifndef(contents)
+            correct_ifndef = get_correct_ifndef_for_path(ifndef_base, file_path)
+            if curr_ifndef != correct_ifndef:
+                _l.warn('Incorrect ifndef in file %s: %s (current) != %s (correct)', file, curr_ifndef, correct_ifndef)
+                failed = True
+    if failed:
+        fail_with_error("Ifndef check failed.")
 
 def run_formatter_check(
     config: ProjectConfig, files: Optional[Sequence[PathLike[str]]] = None
@@ -90,6 +167,17 @@ def run_check(config: ProjectConfig, check: Check, verbosity: int) -> None:
         run_cpu_ci(config, verbosity=verbosity)
     elif check == Check.GPU_CI:
         run_gpu_ci(config, verbosity=verbosity)
+    elif check == Check.IFNDEF:
+        run_ifndef_check(
+            repo_file_tree,
+            config.ifndef_name,
+            config.extension_config,
+        )
+    elif check == Check.INCLUDE:
+        return run_include_check(
+            repo_file_tree,
+            config.extension_config,
+        )
 
 
 def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int) -> None:

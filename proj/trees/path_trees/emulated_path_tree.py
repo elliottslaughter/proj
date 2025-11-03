@@ -72,6 +72,11 @@ class EmulatedPathTree(MutablePathTree):
             if self.has_file(path):
                 yield path
 
+    def dirs(self) -> Iterator[PurePath]:
+        for path in self._paths:
+            if self.has_dir(path):
+                yield path
+
     def rename(self, src: PurePath, dst: PurePath) -> None:
         assert self.has_path(src)
         assert self.has_dir(dst.parent)

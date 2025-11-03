@@ -4,8 +4,17 @@ from pathlib import (
 from .path_tree import (
     PathTree,
     MutablePathTree,
+    TracedMutablePathTree,
+    MoveTrace,
+    MkDirTrace,
+    RmFileTrace,
 )
 import abc
+from dataclasses import dataclass
+from typing import (
+    Sequence,
+    Union,
+)
 
 class FileTree(PathTree):
     @abc.abstractmethod
@@ -14,6 +23,16 @@ class FileTree(PathTree):
         p: PurePath,
     ) -> str:
         ...
+
+@dataclass(frozen=True)
+class ModifyFileTrace:
+    path: PurePath
+    diff: str
+
+@dataclass(frozen=True)
+class CreateFileTrace:
+    path: PurePath
+    contents: str
 
 class MutableFileTree(MutablePathTree, FileTree):
     @abc.abstractmethod
@@ -24,6 +43,17 @@ class MutableFileTree(MutablePathTree, FileTree):
         exist_ok: bool = False, 
         parents: bool = False,
     ) -> None:
+        ...
+
+class TracedMutableFileTree(MutableFileTree, TracedMutablePathTree):
+    @abc.abstractmethod
+    def get_file_trace(self) -> Sequence[Union[
+        MoveTrace,
+        MkDirTrace,
+        RmFileTrace,
+        CreateFileTrace,
+        ModifyFileTrace,
+    ]]:
         ...
 
 class FileTreeWithMtime(FileTree):

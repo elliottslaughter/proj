@@ -75,6 +75,14 @@ def scan_repo_for_libraries(
         if path_tree.has_dir(p):
             yield (Library(p.name), path_tree.restrict_to_subdir(p))
 
+def scan_repo_for_files(
+    repo_path_tree: PathTree,
+    extension_config: ExtensionConfig,
+) -> Iterator[KnownFile | File | UnrecognizedFile]:
+    for library, library_tree in scan_repo_for_libraries(repo_path_tree, extension_config):
+        for file in scan_library_for_files(library, library_tree, extension_config):
+            yield file
+
 def detect_missing_roles(present: Collection[RoleInGroup]) -> Set[RoleInGroup]:
     required = {
         RoleInGroup.PUBLIC_HEADER: {RoleInGroup.SOURCE},
@@ -108,10 +116,9 @@ def run_layout_check(
     extension_config: ExtensionConfig,
 ) -> Iterator[IncompleteGroup | UnrecognizedFile]:
     file_groups: Dict[FileGroup, Set[RoleInGroup]] = defaultdict(set)
-    for library, library_tree in scan_repo_for_libraries(repo_path_tree, extension_config):
-        for file_found in scan_library_for_files(library, library_tree, extension_config):
-            if isinstance(file_found, UnrecognizedFile):
-                yield file_found
-            elif isinstance(file_found, File):
-                file_groups[file_found.group].add(file_found.role)
+    for file_found in scan_repo_for_files(repo_path_tree, extension_config):
+        if isinstance(file_found, UnrecognizedFile):
+            yield file_found
+        elif isinstance(file_found, File):
+            file_groups[file_found.group].add(file_found.role)
     yield from detect_incomplete_groups(file_groups)

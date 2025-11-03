@@ -135,6 +135,11 @@ class EmulatedFileTree(MutableFileTreeWithMtime):
             if self.has_file(path):
                 yield path
 
+    def dirs(self) -> Iterator[PurePath]:
+        for path in self._m:
+            if self.has_dir(path):
+                yield path
+
     def path_tree(self) -> EmulatedPathTree:
         def get_file_type(v: PathRecord) -> PathType:
             if v.contents is None:

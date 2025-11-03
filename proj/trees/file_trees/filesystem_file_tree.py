@@ -1,5 +1,6 @@
 from ..file_tree import MutableFileTreeWithMtime
 from ..path_trees.filesystem_path_tree import FilesystemPathTree
+from .emulated_file_tree import EmulatedFileTree
 from pathlib import PurePath, Path
 from ...paths.absolute_path import AbsolutePath
 
@@ -24,7 +25,7 @@ class FilesystemFileTree(MutableFileTreeWithMtime, FilesystemPathTree):
         Path(self._root.raw / p).write_text(contents)
 
     def get_mtime(self, p: PurePath) -> float:
-        assert self.has_file(p), p
+        assert self.has_path(p), p
         return Path(self._root.raw / p).stat().st_mtime
 
     @staticmethod
@@ -32,3 +33,4 @@ class FilesystemFileTree(MutableFileTreeWithMtime, FilesystemPathTree):
         assert path.is_absolute()
 
         return FilesystemFileTree(AbsolutePath(path))
+

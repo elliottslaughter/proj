@@ -67,3 +67,11 @@ class FilesystemPathTree(MutablePathTree):
             _dirpath = PurePath(dirpath).relative_to(base)
             for fname in filenames:
                 yield (_dirpath / fname)
+
+    def dirs(self) -> Iterator[PurePath]:
+        base = self._root.raw
+
+        for (dirpath, dirnames, filenames) in os.walk(base):
+            _dirpath = PurePath(dirpath).relative_to(base)
+            for dirname in dirnames:
+                yield (_dirpath / dirname)
