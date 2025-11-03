@@ -780,6 +780,8 @@ def test_move() -> None:
 
         require_successful(run(d, [
             'mv',
+            '--skip-update-includes',
+            '--skip-update-ifndefs',
             str(src_path),
             str(dst_path),
         ]))
@@ -823,6 +825,8 @@ def test_move_to_directory() -> None:
 
         require_successful(run(d, [
             'mv',
+            '--skip-update-includes',
+            '--skip-update-ifndefs',
             str(src_hdr_path),
             str(dst_hdr_path.parent),
         ]))
@@ -882,6 +886,7 @@ def test_move_with_ifndef_fix() -> None:
 
         require_successful(run(d, [
             'mv',
+            '--skip-update-ifndefs',
             str(src_path),
             str(dst_path),
         ]))
@@ -938,6 +943,7 @@ def test_move_with_include_fix() -> None:
 
         require_successful(run(d, [
             'mv',
+            '--skip-update-includes',
             str(src_path),
             str(dst_path),
         ]))
