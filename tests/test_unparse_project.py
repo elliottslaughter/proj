@@ -7,9 +7,9 @@ from proj.unparse_project import (
 from proj.paths import (
     RoleInGroup,
     Repo,
-    # LibraryRelPath,
+    ComponentRelPath,
     RepoRelPath,
-    Library,
+    Component,
     FileGroup,
     File,
 )
@@ -21,8 +21,8 @@ from proj.config_file import (
     ExtensionConfig,
 )
 
-# def test_get_library_rel_path() -> None:
-#     p = File(FileGroup(PurePath('a/b')), Library('c'))
+# def test_get_component_rel_path() -> None:
+#     p = File(FileGroup(PurePath('a/b')), Component('c'))
 #
 
 EXTENSION_CONFIG = ExtensionConfig(
@@ -32,36 +32,40 @@ EXTENSION_CONFIG = ExtensionConfig(
 
 @pytest.mark.parametrize("input,correct", [
     # (
-    #     LibraryRelPath(PurePath('a/b'), Library('c')),
+    #     ComponentRelPath(PurePath('a/b'), Component('c')),
     #     RepoRelPath(PurePath('lib/c/a/b'))
     # ),
     (
-        File(FileGroup(PurePath('a/b'), Library('c')), RoleInGroup.DTGEN_TOML),
+        File(FileGroup(PurePath('a/b'), Component.library('c')), RoleInGroup.DTGEN_TOML),
         RepoRelPath(PurePath('lib/c/include/c/a/b.dtg.toml'))
     ),
     (
-        File(FileGroup(PurePath('a/b'), Library('c')), RoleInGroup.PUBLIC_HEADER),
+        File(FileGroup(PurePath('a/b'), Component.library('c')), RoleInGroup.PUBLIC_HEADER),
         RepoRelPath(PurePath('lib/c/include/c/a/b.h'))
     ),
     (
-        File(FileGroup(PurePath('a/b'), Library('c')), RoleInGroup.SOURCE),
+        File(FileGroup(PurePath('a/b'), Component.library('c')), RoleInGroup.SOURCE),
         RepoRelPath(PurePath('lib/c/src/c/a/b.cc'))
     ),
     (
-        File(FileGroup(PurePath('a/b'), Library('c')), RoleInGroup.GENERATED_HEADER),
+        File(FileGroup(PurePath('a/b'), Component.library('c')), RoleInGroup.GENERATED_HEADER),
         RepoRelPath(PurePath('lib/c/include/c/a/b.dtg.h'))
     ),
     (
-        File(FileGroup(PurePath('a/b'), Library('c')), RoleInGroup.GENERATED_SOURCE),
+        File(FileGroup(PurePath('a/b'), Component.library('c')), RoleInGroup.GENERATED_SOURCE),
         RepoRelPath(PurePath('lib/c/src/c/a/b.dtg.cc'))
     ),
     (
-        File(FileGroup(PurePath('a/b'), Library('c')), RoleInGroup.TEST),
+        File(FileGroup(PurePath('a/b'), Component.library('c')), RoleInGroup.TEST),
         RepoRelPath(PurePath('lib/c/test/src/c/a/b.cc'))
     ),
     (
-        File(FileGroup(PurePath('a/b'), Library('c')), RoleInGroup.BENCHMARK),
+        File(FileGroup(PurePath('a/b'), Component.library('c')), RoleInGroup.BENCHMARK),
         RepoRelPath(PurePath('lib/c/benchmark/src/c/a/b.cc'))
+    ),
+    (
+        ComponentRelPath(PurePath('include/c/a/b.h'), Component.library('c')),
+        RepoRelPath(PurePath('lib/c/include/c/a/b.h'))
     ),
 ])
 def test_get_repo_rel_path(input: Any, correct: RepoRelPath) -> None:
@@ -71,7 +75,7 @@ def test_get_repo_rel_path(input: Any, correct: RepoRelPath) -> None:
 
 @pytest.mark.parametrize("input,extension_config,correct", [
     (
-        File(FileGroup(PurePath('a/b'), Library('c', Repo(PurePath('d')))), RoleInGroup.SOURCE),
+        File(FileGroup(PurePath('a/b'), Component.library('c', Repo(PurePath('d')))), RoleInGroup.SOURCE),
         EXTENSION_CONFIG,
         PurePath('d/lib/c/src/c/a/b.cc'),
     )

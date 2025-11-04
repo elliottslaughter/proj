@@ -11,8 +11,8 @@ from proj.paths import (
     File,
     FileGroup,
     RoleInGroup,
-    LibraryRelPath,
-    Library,
+    ComponentRelPath,
+    Component,
 )
 from pathlib import PurePath
 from proj.parse_project import (
@@ -44,7 +44,7 @@ def get_parse_repo_path_with_repo_arg(input_str: str, correct_str: str) -> None:
         RepoRelPath(PurePath('lib/example/include/example/thing.dtg.toml')),
         EXTENSION_CONFIG,
         File(
-            FileGroup(PurePath('thing'), Library('example')),
+            FileGroup(PurePath('thing'), Component.library('example')),
             RoleInGroup.DTGEN_TOML,
         ),
     ),
@@ -52,7 +52,7 @@ def get_parse_repo_path_with_repo_arg(input_str: str, correct_str: str) -> None:
         RepoRelPath(PurePath('lib/example/include/example/thing.dtg.h')),
         EXTENSION_CONFIG,
         File(
-            FileGroup(PurePath('thing'), Library('example')),
+            FileGroup(PurePath('thing'), Component.library('example')),
             RoleInGroup.GENERATED_HEADER,
         ),
     ),
@@ -60,7 +60,7 @@ def get_parse_repo_path_with_repo_arg(input_str: str, correct_str: str) -> None:
         RepoRelPath(PurePath('lib/example/src/example/thing.dtg.cc')),
         EXTENSION_CONFIG,
         File(
-            FileGroup(PurePath('thing'), Library('example')),
+            FileGroup(PurePath('thing'), Component.library('example')),
             RoleInGroup.GENERATED_SOURCE,
         ),
     ),
@@ -68,7 +68,7 @@ def get_parse_repo_path_with_repo_arg(input_str: str, correct_str: str) -> None:
         RepoRelPath(PurePath('lib/example/src/example/thing.cc')),
         EXTENSION_CONFIG,
         File(
-            FileGroup(PurePath('thing'), Library('example')),
+            FileGroup(PurePath('thing'), Component.library('example')),
             RoleInGroup.SOURCE,
         ),
     ),
@@ -76,7 +76,7 @@ def get_parse_repo_path_with_repo_arg(input_str: str, correct_str: str) -> None:
         RepoRelPath(PurePath('lib/example/test/src/example/thing.cc')),
         EXTENSION_CONFIG,
         File(
-            FileGroup(PurePath('thing'), Library('example')),
+            FileGroup(PurePath('thing'), Component.library('example')),
             RoleInGroup.TEST,
         ),
     ),
@@ -84,7 +84,7 @@ def get_parse_repo_path_with_repo_arg(input_str: str, correct_str: str) -> None:
         RepoRelPath(PurePath('lib/example/benchmark/src/example/thing.cc')),
         EXTENSION_CONFIG,
         File(
-            FileGroup(PurePath('thing'), Library('example')),
+            FileGroup(PurePath('thing'), Component.library('example')),
             RoleInGroup.BENCHMARK,
         ),
     ),
@@ -108,9 +108,17 @@ def get_parse_repo_path_with_repo_arg(input_str: str, correct_str: str) -> None:
         EXTENSION_CONFIG,
         None,
     ),
+    (
+        RepoRelPath(PurePath('bin/mybin/src/mybin/something.cc')),
+        EXTENSION_CONFIG,
+        File(
+            FileGroup(PurePath('something'), Component.executable('mybin')),
+            RoleInGroup.SOURCE,
+        ),
+    ),
 ])
 def test_parse_file_path(
-    input: Union[LibraryRelPath, RepoRelPath], 
+    input: Union[ComponentRelPath, RepoRelPath], 
     extension_config: ExtensionConfig, 
     correct: Optional[File],
 ) -> None:

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from .library import Library
+from .component import Component
 from pathlib import PurePath
 from .role_in_group import RoleInGroup
 from typing import (
@@ -10,10 +10,10 @@ from .file import File
 @dataclass(frozen=True)
 class FileGroup:
     group_path: PurePath
-    library: Optional[Library] = field(default=None)
+    component: Optional[Component] = field(default=None)
 
     def __str__(self) -> str:
-        return f'{self.library}:{self.group_path}'
+        return f'{self.component}:{self.group_path}'
 
     @property
     def public_header(self) -> 'File':

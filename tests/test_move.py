@@ -9,7 +9,7 @@ from proj.trees import (
 )
 from proj.paths import (
     RepoRelPath,
-    Library,
+    Component,
     FileGroup,
     File,
     RoleInGroup,
@@ -50,14 +50,14 @@ def test_get_move_plan() -> None:
         ]
     })
 
-    src_library = Library('person')
+    src_library = Component.library('person')
 
     src = File(
         FileGroup(PurePath('example_struct'), src_library),
         RoleInGroup.SOURCE,
     )
 
-    dst_library = Library('airplane')
+    dst_library = Component.library('airplane')
 
     dst = File(
         FileGroup(PurePath('my_other_airplane'), dst_library),

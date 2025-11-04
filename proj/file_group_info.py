@@ -9,11 +9,12 @@ from .paths import (
     FileGroup,
 )
 from .unparse_project import get_repo_rel_path
-from .config_file import ExtensionConfig, get_ifndef_for_path
+from .config_file import ExtensionConfig
 from .includes import (
     get_generated_include_path,
     get_include_path,
 )
+from .ifndef import get_correct_ifndef_for_path
 
 @dataclass(frozen=True, order=True)
 class FileGroupInfo:
@@ -55,7 +56,7 @@ def get_file_group_info(
         test_source=get_repo_rel_path(file_group.test, extension_config).path,
         benchmark_source=get_repo_rel_path(file_group.benchmark, extension_config).path,
         toml_path=get_repo_rel_path(file_group.dtgen_toml, extension_config).path,
-        ifndef=get_ifndef_for_path(ifndef_base, get_repo_rel_path(file_group.public_header, extension_config)),
+        ifndef=get_correct_ifndef_for_path(ifndef_base, get_repo_rel_path(file_group.public_header, extension_config)),
         generated_include=get_generated_include_path(file_group, extension_config.header_extension),
-        include=get_include_path(file_group, extension_config.header_extension),
+       include=get_include_path(file_group, extension_config.header_extension),
     )

@@ -65,13 +65,6 @@ def elseblock(f: TextIO) -> Iterator[None]:
         yield
 
 
-def parse_include_spec(raw: str) -> IncludeSpec:
-    if raw.startswith("<") and raw.endswith(">"):
-        return IncludeSpec(path=PurePath(raw[1:-1]), system=True)
-    else:
-        return IncludeSpec(path=PurePath(raw), system=False)
-
-
 def render_includes(includes: Sequence[IncludeSpec], f: TextIO) -> None:
     for inc in includes:
         if inc.system:

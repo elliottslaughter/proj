@@ -10,6 +10,9 @@ from typing import (
 from functools import reduce
 from pathlib import PurePath, Path
 import re
+import logging
+
+_l = logging.getLogger(__name__)
 
 T = TypeVar("T")
 T1 = TypeVar("T1")
@@ -83,3 +86,14 @@ def with_suffix_removed(p: P, n: int = 1) -> P:
     for _ in range(n):
         p = p.with_suffix("")
     return p
+
+def saturating_relative_to(child: PurePath, parent: PurePath) -> Optional[PurePath]:
+    result: Optional[PurePath]
+    if parent.is_relative_to(child):
+        result = PurePath('.')
+    elif child.is_relative_to(parent):
+        result = child.relative_to(parent)
+    else:
+        result = None
+    _l.debug('saturating_relative_to(%s, %s) -> %s', child, parent, result)
+    return result

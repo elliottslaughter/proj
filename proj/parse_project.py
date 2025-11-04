@@ -9,8 +9,8 @@ from typing import (
 from .paths import (
     Repo,
     RepoRelPath,
-    Library,
-    LibraryRelPath,
+    Component,
+    ComponentRelPath,
     File,
     RoleInGroup,
     FileGroup,
@@ -37,36 +37,56 @@ def parse_repo_path(p: PurePath, path_tree_or_repo: Union[PathTree, Repo]) -> Op
             return RepoRelPath(p.relative_to(repo_root), Repo(repo_root))
     return None
 
-def parse_library_path(repo_rel: RepoRelPath) -> LibraryRelPath:
-    assert repo_rel.path.parts[0] == 'lib'
-    library = Library(repo_rel.path.parts[1], repo_rel.repo)
+def parse_library_path(repo_rel: RepoRelPath) -> ComponentRelPath:
+    assert repo_rel.path.parts[0] == 'lib', repo_rel.path
+    library = Component.library(repo_rel.path.parts[1], repo_rel.repo)
     library_path = PurePath('lib') / library.name
-    return LibraryRelPath(repo_rel.path.relative_to(library_path), library)
+    return ComponentRelPath(repo_rel.path.relative_to(library_path), library)
 
-def find_libraries_in_repo(repo: Repo, path_tree: PathTree) -> Iterator[Library]:
+def parse_executable_path(repo_rel: RepoRelPath) -> ComponentRelPath:
+    assert repo_rel.path.parts[0] == 'bin', repo_rel.path
+    executable = Component.executable(repo_rel.path.parts[1], repo_rel.repo)
+    executable_path = PurePath('bin') / executable.name
+    return ComponentRelPath(repo_rel.path.relative_to(executable_path), executable)
+
+def parse_component_path(repo_rel: RepoRelPath) -> ComponentRelPath:
+    leading = repo_rel.path.parts[0]
+    if leading == 'lib':
+        return parse_library_path(repo_rel)
+    elif leading == 'bin':
+        return parse_executable_path(repo_rel)
+    else:
+        raise ValueError(f'Invalid component path {repo_rel}')
+
+def find_libraries_in_repo(repo: Repo, path_tree: PathTree) -> Iterator[Component]:
     for lib_name in path_tree.ls_dir(repo.path / 'lib'):
-        yield Library(lib_name.name, repo=repo)
+        yield Component.library(lib_name.name, repo=repo)
+
+def find_executables_in_repo(repo: Repo, path_tree: PathTree) -> Iterator[Component]:
+    for bin_name in path_tree.ls_dir(repo.path / 'bin'):
+        yield Component.executable(bin_name.name, repo=repo)
+
 
 def parse_file_path(
-    rel: Union[LibraryRelPath, RepoRelPath], 
+    rel: Union[ComponentRelPath, RepoRelPath], 
     extension_config: 'ExtensionConfig',
 ) -> Optional[File]:
-    lib_rel: LibraryRelPath
-    if isinstance(rel, LibraryRelPath):
-        lib_rel = rel
+    component_rel: ComponentRelPath
+    if isinstance(rel, ComponentRelPath):
+        component_rel = rel
     else:
-        lib_rel = parse_library_path(rel)
+        component_rel = parse_component_path(rel)
 
-    assert lib_rel.library is not None
-    library = lib_rel.library
-    p = lib_rel.path
+    assert component_rel.component is not None
+    component = component_rel.component
+    p = component_rel.path
 
     header_extension = extension_config.header_extension
 
-    public_include_dir = PurePath('include') / library.name
-    src_dir = PurePath('src') / library.name
-    test_dir = PurePath('test/src') / library.name
-    benchmark_dir = PurePath('benchmark/src') / library.name
+    public_include_dir = PurePath('include') / component.name
+    src_dir = PurePath('src') / component.name
+    test_dir = PurePath('test/src') / component.name
+    benchmark_dir = PurePath('benchmark/src') / component.name
 
     file_type: RoleInGroup
     group: FileGroup
@@ -76,7 +96,7 @@ def parse_file_path(
         file_type = RoleInGroup.DTGEN_TOML
         group = FileGroup(
             p.parent.relative_to(public_include_dir) / pp.stem,
-            library,
+            component,
         )
     elif p.is_relative_to(public_include_dir) and p.suffix == header_extension:
         pp = p.parent / p.stem
@@ -84,13 +104,13 @@ def parse_file_path(
             file_type = RoleInGroup.GENERATED_HEADER
             group = FileGroup(
                 p.parent.relative_to(public_include_dir) / pp.stem,
-                library,
+                component,
             )
         else:
             file_type = RoleInGroup.PUBLIC_HEADER
             group = FileGroup(
                 p.parent.relative_to(public_include_dir) / p.stem,
-                library,
+                component,
             )
 
     elif p.is_relative_to(src_dir) and p != src_dir:
@@ -99,26 +119,26 @@ def parse_file_path(
             file_type = RoleInGroup.GENERATED_SOURCE
             group = FileGroup(
                 p.parent.relative_to(src_dir) / pp.stem,
-                library,
+                component,
             )
         elif p.suffix == extension_config.src_extension:
             file_type = RoleInGroup.SOURCE
             group = FileGroup(
                 p.parent.relative_to(src_dir) / p.stem,
-                library,
+                component,
             )
         else: 
             return None
     elif p.is_relative_to(test_dir):
         group=FileGroup(
             p.parent.relative_to(test_dir) / p.stem,
-            library,
+            component,
         )
         file_type=RoleInGroup.TEST
     elif p.is_relative_to(benchmark_dir):
         group=FileGroup(
             p.parent.relative_to(benchmark_dir) / p.stem,
-            library,
+            component,
         )
         file_type=RoleInGroup.BENCHMARK
     else:

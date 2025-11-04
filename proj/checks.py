@@ -1,6 +1,7 @@
 from typing import (
     Optional,
     Sequence,
+    Iterable,
 )
 from os import (
     PathLike,
@@ -79,15 +80,19 @@ class Check(StrEnum):
 def run_layout_check(
     repo_path_tree: PathTree,
     extension_config: ExtensionConfig,
+    ignore_paths: Iterable[RepoRelPath],
 ) -> None:
     failed = False
-    for error in _run_layout_check(repo_path_tree, extension_config):
+    for error in _run_layout_check(repo_path_tree, extension_config, ignore_paths):
         if isinstance(error, IncompleteGroup):
-            _l.warn('Incomplete file group %s: missing %s', error.file_group, ', '.join(map(str, (error.missing))))
+            _l.warn('Incomplete file group %s', error.file_group)
+            for missing_role in error.missing:
+                missing_path = get_repo_rel_path(File(error.file_group, missing_role), extension_config)
+                _l.warn('  - %s', missing_path.path)
             failed = True
         elif isinstance(error, UnrecognizedFile):
-            path: RepoRelPath = get_repo_rel_path(error.path, extension_config=extension_config)
-            _l.warn('Unrecognized file at %s', path)
+            repo_rel_path: RepoRelPath = get_repo_rel_path(error.path, extension_config=extension_config)
+            _l.warn('Unrecognized file at %s', repo_rel_path.path)
             failed = True
     if failed:
         fail_with_error("Layout check failed.")
@@ -164,7 +169,7 @@ def run_check(config: ProjectConfig, check: Check, verbosity: int) -> None:
     if check == Check.FORMAT:
         run_formatter_check(config)
     elif check == Check.LAYOUT:
-        run_layout_check(repo_file_tree, config.extension_config)
+        run_layout_check(repo_file_tree, config.extension_config, [RepoRelPath(p) for p in config.layout_ignore_paths])
     elif check == Check.CPU_CI:
         run_cpu_ci(config, verbosity=verbosity)
     elif check == Check.GPU_CI:

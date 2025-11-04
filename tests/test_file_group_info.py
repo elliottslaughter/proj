@@ -1,17 +1,13 @@
 from proj.paths import (
     Repo,
     FileGroup,
-    Library,
+    Component,
 )
 from proj.config_file import ExtensionConfig
 from pathlib import PurePath
 from proj.file_group_info import (
     get_file_group_info,
     FileGroupInfo,
-)
-from proj.includes import (
-    get_include_path,
-    get_generated_include_path,
 )
 
 EXTENSION_CONFIG = ExtensionConfig(
@@ -22,7 +18,7 @@ EXTENSION_CONFIG = ExtensionConfig(
 def test_get_file_group_info() -> None:
     file_group = FileGroup(
         PurePath('a/b'),
-        Library(
+        Component.library(
             'c',
             Repo(PurePath('d')),
         ),

@@ -1,11 +1,9 @@
 from proj.config_file import (
-    get_ifndef_for_path,
     ExtensionConfig,
 )
 from typing import (
     TextIO,
     Sequence,
-    Iterator,
     Optional,
     Union,
     List,
@@ -68,6 +66,7 @@ from ..parse_project import (
 from proj.includes import (
     get_generated_include_path,
 )
+from proj.ifndef import get_correct_ifndef_for_path
 
 _l = logging.getLogger(__name__)
 
@@ -89,7 +88,7 @@ def find_dtgen_spec_in_repo(path_tree: PathTree, extension_config: ExtensionConf
     for found in path_tree.with_extension(".dtg.toml"):
         if not is_blacklisted(found):
             parsed = parse_file_path(RepoRelPath(found), extension_config)
-            assert parsed is not None
+            assert parsed is not None, found
             result.append(parsed)
     return result
 
@@ -184,7 +183,7 @@ def generate_header_contents(
     with io.StringIO() as f:
         render_disclaimer(spec_path=spec_repo_rel, f=f)
         render_proj_metadata(spec_path=spec_repo_rel.path, spec_hash=spec_hash, f=f)
-        ifndef = get_ifndef_for_path(ifndef_base, out_repo_rel)
+        ifndef = get_correct_ifndef_for_path(ifndef_base, out_repo_rel)
         f.write("\n")
         f.write(f"#ifndef {ifndef}\n")
         f.write(f"#define {ifndef}\n")
@@ -319,14 +318,17 @@ def load_spec_file(p: PurePath, repo_file_tree: FileTree) -> Union[StructSpec, E
 
     spec_type = raw['type']
     del raw['type']
-    if spec_type == 'struct':
-        return parse_struct_spec(raw)
-    elif spec_type == 'variant':
-        return parse_variant_spec(raw)
-    elif spec_type == 'enum':
-        return parse_enum_spec(raw)
-    else:
-        raise RuntimeError()
+    try:
+        if spec_type == 'struct':
+            return parse_struct_spec(raw)
+        elif spec_type == 'variant':
+            return parse_variant_spec(raw)
+        elif spec_type == 'enum':
+            return parse_enum_spec(raw)
+        else:
+            raise RuntimeError()
+    except KeyError as e:
+        raise RuntimeError(f"Failed to parse spec {p}") from e
 
 def generate_files(
     file_group: FileGroup, 

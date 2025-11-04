@@ -24,6 +24,7 @@ from .path_trees import (
     EmulatedPathTree, 
     PathType,
     MutableTracedPathTreeByWrapping,
+    MaskedPathTree,
 )
 from .filesystem import (
     load_root_filesystem, 

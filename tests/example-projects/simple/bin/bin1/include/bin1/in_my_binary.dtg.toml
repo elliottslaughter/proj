@@ -1,0 +1,10 @@
+namespace = "FlexFlow"
+name = "InMyBinary"
+type = "struct"
+features = []
+
+includes = []
+
+[[fields]]
+name = "my_field"
+type = "int"

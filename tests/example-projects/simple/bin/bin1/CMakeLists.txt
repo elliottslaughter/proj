@@ -3,6 +3,8 @@ tp_add_executable(
     bin1
   SRC_PATTERNS
     src/*.cc
+  PRIVATE_INCLUDE
+    include/
   DEPS
     lib1
 )

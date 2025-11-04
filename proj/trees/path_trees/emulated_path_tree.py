@@ -38,7 +38,6 @@ class EmulatedPathTree(MutablePathTree):
                 yield path
 
     def restrict_to_subdir(self, p: PurePath) -> 'EmulatedPathTree':
-        assert self.has_dir(p)
         return EmulatedPathTree({
             k.relative_to(p): v for k, v in self._paths.items()
             if k.is_relative_to(p)

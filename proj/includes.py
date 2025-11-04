@@ -1,7 +1,7 @@
 from pathlib import PurePath
 from .paths import (
     FileGroup,
-    Library,
+    Component,
     File,
     RoleInGroup,
 )
@@ -52,17 +52,17 @@ class UnknownInclude:
 
 
 def get_include_path(file_group: FileGroup, header_extension: str) -> PurePath:
-    assert file_group.library is not None
+    assert file_group.component is not None
     return (
-        file_group.library.name 
+        file_group.component.name 
         / file_group.group_path.parent 
         / (file_group.group_path.name + header_extension)
     )
 
 def get_generated_include_path(file_group: FileGroup, header_extension: str) -> PurePath:
-    assert file_group.library is not None
+    assert file_group.component is not None
     return (
-        file_group.library.name 
+        file_group.component.name 
         / file_group.group_path.parent 
         / (file_group.group_path.name + '.dtg' + header_extension)
     )
@@ -80,20 +80,20 @@ def get_file_for_include_path(include_path: PurePath, header_extension: str) -> 
     if len(include_path.parts) <= 1:
         return None
     
-    library_name = include_path.parts[0]
-    library = Library(library_name)
+    component_name = include_path.parts[0]
+    component = Component(component_name, component_type=None)
 
-    file_rel_path = include_path.relative_to(PurePath(library_name))
+    file_rel_path = include_path.relative_to(PurePath(component_name))
 
     if file_rel_path.name.endswith('.dtg' + header_extension):
         return FileGroup(
             with_suffix_removed(file_rel_path, n=2),
-            library,
+            component,
         ).generated_header
     elif file_rel_path.name.endswith(header_extension):
         return FileGroup(
             with_suffix_removed(file_rel_path, n=1),
-            library,
+            component,
         ).public_header
     else:
         return None

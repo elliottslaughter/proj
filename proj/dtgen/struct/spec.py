@@ -7,12 +7,10 @@ from typing import (
     Any,
     Mapping,
 )
-from pathlib import Path
-from proj.dtgen.render_utils import (
+from proj.includes import (
     IncludeSpec,
     parse_include_spec,
 )
-import proj.toml as toml
 from proj.json import Json
 
 

@@ -48,7 +48,6 @@ from enum import (
 )
 from .paths import (
     Repo,
-    RepoRelPath,
 )
 from .trees import FileTree
 
@@ -107,6 +106,7 @@ class ProjectConfig:
     _fix_compile_commands: Optional[bool] = None
     _test_header_path: Optional[Path] = None
     _cuda_launch_cmd: Optional[Tuple[str, ...]] = None
+    _layout_ignore_paths: Optional[Tuple[Path, ...]] = None
 
     @property
     def repo(self) -> Repo:
@@ -397,6 +397,12 @@ class ProjectConfig:
             cmd = self.cuda_launch_cmd + cmd
         return cmd
 
+    @property
+    def layout_ignore_paths(self) -> Tuple[Path, ...]:
+        if self._layout_ignore_paths is None:
+            return tuple()
+        else:
+            return self._layout_ignore_paths
 
 def load_repo_config(repo: Repo, file_tree: FileTree) -> ProjectConfig:
     contents = file_tree.get_file_contents(repo.path / ".proj.toml")
@@ -514,6 +520,12 @@ def load_str_tuple(x: object) -> Optional[Tuple[str, ...]]:
 def load_path(x: object) -> Optional[Path]:
     return map_optional(map_optional(x, require_str), lambda s: Path(s))
 
+def load_path_tuple(x: object) -> Optional[Tuple[Path, ...]]:
+    if x is None:
+        return None
+
+    list_ = require_list_of(x, require_str)
+    return tuple(Path(l) for l in list_)
 
 def load_cmake_flags(x: object) -> Optional[Map[str, str]]:
     return map_optional(x, lambda y: require_dict_of(y, require_str, require_str))
@@ -541,6 +553,7 @@ class ConfigKey(StrEnum):
     FIX_COMPILE_COMMANDS = "fix_compile_commands"
     TEST_HEADER_PATH = "test_header_path"
     CUDA_LAUNCH_CMD = "cuda_launch_cmd"
+    LAYOUT_IGNORE_PATHS = "layout_ignore_paths"
 
 def load_parsed_config(repo: Repo, raw: object) -> ProjectConfig:
     _l.debug("Loading parsed config: %s", raw)
@@ -573,6 +586,7 @@ def load_parsed_config(repo: Repo, raw: object) -> ProjectConfig:
         ),
         _test_header_path=load_path(raw.get(ConfigKey.TEST_HEADER_PATH)),
         _cuda_launch_cmd=load_str_tuple(raw.get(ConfigKey.CUDA_LAUNCH_CMD)),
+        _layout_ignore_paths=load_path_tuple(raw.get(ConfigKey.LAYOUT_IGNORE_PATHS)),
     )
 
 
@@ -582,27 +596,6 @@ def load_parsed_config(repo: Repo, raw: object) -> ProjectConfig:
 #     except FileNotFoundError:
 #         return None
 #
-
-def with_suffixes(p: Path, suffs: str) -> Path:
-    name = p.name
-    while "." in name:
-        name = name[: name.rfind(".")]
-    return p.with_name(name + suffs)
-
-
-def with_suffix_appended(p: Path, suff: str) -> Path:
-    assert suff.startswith(".")
-    return p.with_name(p.name + suff)
-
-
-def with_suffices_removed(p: Path, num: int = 1) -> Path:
-    for _ in range(num):
-        p = p.with_suffix("")
-    return p
-
-def get_ifndef_for_path(ifndef_base: str, repo_rel: RepoRelPath) -> str:
-    unfixed = f"_{ifndef_base}_" + str(repo_rel.path)
-    return re.sub(r"[^a-zA-Z0-9_]", "_", unfixed).upper()
 
 # def get_possible_spec_paths(p: Path) -> Iterator[Path]:
 #     p = Path(p).absolute()

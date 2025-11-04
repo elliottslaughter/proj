@@ -13,9 +13,9 @@ class File:
 
     @property
     def repo(self) -> Repo:
-        assert self.group.library is not None
-        assert self.group.library.repo is not None
-        return self.group.library.repo
+        assert self.group.component is not None
+        assert self.group.component.repo is not None
+        return self.group.component.repo
 
     def __str__(self) -> str:
         return f'{self.group}:<{self.role.shortname}>'

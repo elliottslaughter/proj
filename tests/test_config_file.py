@@ -3,6 +3,8 @@ from proj.config_file import (
     load_parsed_config,
     ConfigKey,
     ProjectConfig,
+)
+from proj.utils import (
     with_suffix_appended,
     with_suffixes,
 )
@@ -31,6 +33,10 @@ def get_example_config() -> Dict[str, Any]:
         ConfigKey.FIX_COMPILE_COMMANDS: False,
         ConfigKey.TEST_HEADER_PATH: '/example/test/header/path.h',
         ConfigKey.CUDA_LAUNCH_CMD: ['a', 'b'],
+        ConfigKey.LAYOUT_IGNORE_PATHS: [
+            '/example/ignore/me.h',
+            '/example/ignore_us/',
+        ],
     }
 
 REPO = Repo(PurePath('/config/root'))
@@ -51,6 +57,10 @@ LOADED_CONFIG = ProjectConfig(
     _fix_compile_commands=False,
     _test_header_path=Path('/example/test/header/path.h'),
     _cuda_launch_cmd=('a', 'b'),
+    _layout_ignore_paths=(
+        Path('/example/ignore/me.h'),
+        Path('/example/ignore_us/'),
+    ),
 )
 
 def test_load_parsed_config_loads_complete_value() -> None:

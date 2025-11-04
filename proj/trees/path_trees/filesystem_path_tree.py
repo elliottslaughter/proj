@@ -46,7 +46,9 @@ class FilesystemPathTree(MutablePathTree):
         yield from filter(has_extension, self.files())
 
     def ls_dir(self, p: PurePath) -> Iterator[PurePath]: 
-        yield from Path(self._root.raw / p).iterdir()
+        yield from [
+            _p.relative_to(self._root.raw) for _p in Path(self._root.raw / p).iterdir()
+        ]
 
     def rename(self, src: PurePath, dst: PurePath) -> None:
         assert self.has_path(src)
