@@ -8,6 +8,8 @@ from proj.includes import (
     find_includes_in_cpp_file_contents,
     replace_include_in_cpp_file_contents,
     replace_include_in_dtg_toml_file_contents,
+    find_includes_in_dtgen_toml_file_contents,
+    find_occurrences_of_include,
     IncludeSpec,
     UnknownInclude,
     SystemInclude,
@@ -20,6 +22,8 @@ from pathlib import PurePath
 from typing import (
     Optional,
 )
+from proj.trees import EmulatedFileTree
+from proj.config_file import ExtensionConfig
 
 def test_get_include_path() -> None:
     file_group = FileGroup(
@@ -142,7 +146,7 @@ def test_find_include_specs_in_cpp_file_contents() -> None:
         stuff
     '''
         
-    result = find_include_specs_in_cpp_file_contents(file_contents, header_extension='.h')
+    result = find_include_specs_in_cpp_file_contents(file_contents)
 
     correct = [
         IncludeSpec(PurePath('something/else.h'), system=False),
@@ -202,6 +206,53 @@ def test_replace_include_in_cpp_file_contents():
         stuff
     '''
 
+    assert result == correct
+
+def test_find_include_specs_in_dtgen_toml_file_contents() -> None:
+    file_contents = '''
+        namespace = "FlexFlow"
+        name = "MyList"
+        type = "variant"
+        features = [
+          "eq",
+          "ord",
+          "hash",
+          "json",
+          "fmt",
+        ]
+
+        template_params = [
+          "T",
+        ]
+
+        includes = [
+          "person/my_list_cons.dtg.hh",
+        ]
+
+        src_includes = [
+          "<unordered_set>",
+          "person/my_list_empty.dtg.hh",
+          "something_else_entirely.hh",
+        ]
+
+        [[values]]
+        type = "::FlexFlow::MyListCons<T>"
+        key = "cons"
+
+        [[values]]
+        type = "::FlexFlow::MyListEmpty"
+        key = "empty"
+    '''
+
+    result = list(find_includes_in_dtgen_toml_file_contents(file_contents, header_extension='.hh'))
+
+    correct = [
+        FileGroup(PurePath("my_list_cons"), Library("person")).generated_header,
+        SystemInclude(PurePath("unordered_set")),
+        FileGroup(PurePath("my_list_empty"), Library("person")).generated_header,
+        UnknownInclude(PurePath("something_else_entirely.hh")),
+    ]
+    
     assert result == correct
 
 def test_replace_include_in_dtg_toml_file_contents() -> None:
@@ -270,5 +321,115 @@ def test_replace_include_in_dtg_toml_file_contents() -> None:
         type = "::FlexFlow::MyListEmpty"
         key = "empty"
     '''
+
+    assert result == correct
+
+def test_find_occurrences_of_include() -> None:
+    matching_header_path = 'lib/example/include/example/something_else.h'
+    matching_header_file = FileGroup(
+        PurePath('something_else'),
+        Library('example'),
+    ).public_header
+    matching_header_contents = '''
+        #ifndef MY_OTHER_IFNDEF
+        #define MY_OTHER_IFNDEF
+
+        #include "find/me.h"
+        #include "not/me.h"
+
+        #endif // MY_OTHER_IFNDEF
+    '''
+
+    non_matching_header_path = 'lib/example/include/example/papayas.h'
+    non_matching_header_contents = '''
+        #ifndef MY_OTHER_IFNDEF
+        #define MY_OTHER_IFNDEF
+
+        #include "not/me.h"
+
+        #endif // MY_OTHER_IFNDEF
+    '''
+
+    matching_toml_path = 'lib/example/include/example/integer.dtg.toml'
+    matching_toml_file = FileGroup(
+        PurePath('integer'),
+        Library('example'),
+    ).dtgen_toml
+    matching_toml_contents = '''
+        namespace = "FlexFlow"
+        name = "MyList"
+        type = "variant"
+        features = []
+
+        includes = [
+          "find/me.h",
+          "not/me.h",
+        ]
+
+        values = []
+    '''
+
+    non_matching_toml_path = 'lib/example/include/example/another_integer.dtg.toml'
+    non_matching_toml_contents = '''
+        namespace = "FlexFlow"
+        name = "MyList"
+        type = "variant"
+        features = []
+
+        includes = [
+          "not/me.h",
+        ]
+
+        values = []
+    '''
+
+
+    repo_file_tree = EmulatedFileTree.from_lists(
+        curr_time=10,
+        files=[
+            (
+                matching_toml_path,
+                1,
+                matching_toml_contents,
+            ),
+            (
+                matching_header_path,
+                1,
+                matching_header_contents,
+            ),
+            (
+                non_matching_toml_path,
+                1,
+                non_matching_toml_contents,
+            ),
+            (
+                non_matching_header_path,
+                1,
+                non_matching_header_contents,
+            ),
+        ],
+        dirs=[]
+    )
+
+    to_find = IncludeSpec(
+        PurePath('find/me.h'),
+        system=False,
+    )
+
+    extension_config = ExtensionConfig(
+        header_extension='.h',
+        src_extension='.cc',
+    )
+
+    result = find_occurrences_of_include(
+        repo_file_tree,  
+        to_find,
+        extension_config,
+    )
+
+    correct = {
+        matching_header_file,
+        matching_toml_file,
+    }
 
     assert result == correct

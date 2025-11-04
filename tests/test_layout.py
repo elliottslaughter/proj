@@ -12,6 +12,7 @@ from proj.paths import (
     Library,
     FileGroup,
     RoleInGroup,
+    LibraryRelPath,
 )
 from proj.trees import (
     EmulatedPathTree,
@@ -55,14 +56,14 @@ def test_scan_library_for_files() -> None:
     group = FileGroup(PurePath('example_struct'), library=library)
 
     correct = {
-        KnownFile(PurePath('CMakeLists.txt')),
+        KnownFile(LibraryRelPath(PurePath('CMakeLists.txt'), library)),
         group.dtgen_toml,
         group.public_header,
         group.source,
         group.test,
         group.benchmark,
         FileGroup(PurePath('example_variant'), library=library).dtgen_toml,
-        UnrecognizedFile(PurePath('src/bad.cc'))
+        UnrecognizedFile(LibraryRelPath(PurePath('src/bad.cc'), library))
     }
 
     assert result == correct
@@ -188,7 +189,7 @@ def test_run_layout_check() -> None:
 
     correct = {
         IncompleteGroup(group, frozenset({RoleInGroup.PUBLIC_HEADER})),
-        UnrecognizedFile(PurePath('src/bad.cc'))
+        UnrecognizedFile(LibraryRelPath(PurePath('src/bad.cc'), library))
     }
 
     assert result == correct

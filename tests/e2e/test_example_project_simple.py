@@ -970,6 +970,21 @@ def test_move_with_include_fix() -> None:
             'include',
         ])
 
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_find_include() -> None:
+    with project_instance() as d:
+        check_cmd_succeeds(d, [
+            'find-include',
+            'lib1/example_enum.h',
+        ])
+
+        check_cmd_fails(d, [
+            'find-include',
+            'lib1/something_that_does_not_exist.h',
+        ])
+
+
 
 @pytest.mark.e2e
 @pytest.mark.slow

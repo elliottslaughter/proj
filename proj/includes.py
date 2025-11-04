@@ -9,14 +9,21 @@ from typing import (
     Optional,
     Sequence,
     List,
+    Iterator,
+    Set,
 )
 from .utils import (
     with_suffix_removed,
 )
 import re
 from dataclasses import dataclass
-from proj.json import Json
-
+from .json import Json
+from .trees import FileTree
+from .layout import scan_repo_for_files
+import tomllib
+from .config_file import ExtensionConfig
+import itertools
+from .unparse_project import get_repo_rel_path
 
 @dataclass(frozen=True, order=True)
 class IncludeSpec:
@@ -28,6 +35,12 @@ class IncludeSpec:
             "path": str(self.path),
             "system": self.system,
         }
+
+def parse_include_spec(raw: str) -> IncludeSpec:
+    if raw.startswith("<") and raw.endswith(">"):
+        return IncludeSpec(path=PurePath(raw[1:-1]), system=True)
+    else:
+        return IncludeSpec(path=PurePath(raw), system=False)
 
 @dataclass(frozen=True, order=True)
 class SystemInclude:
@@ -85,7 +98,7 @@ def get_file_for_include_path(include_path: PurePath, header_extension: str) -> 
     else:
         return None
 
-def find_include_specs_in_cpp_file_contents(contents: str, header_extension: str) -> Sequence[IncludeSpec]:
+def find_include_specs_in_cpp_file_contents(contents: str) -> Sequence[IncludeSpec]:
     def delimiter_is_system(delim: str) -> bool:
         assert delim in ['<', '"']
         return delim == '<'
@@ -98,19 +111,42 @@ def find_include_specs_in_cpp_file_contents(contents: str, header_extension: str
         for m in re.finditer(r'#include\s+(?P<delimiter>[<"])(?P<include_path>\S+)[>"]', contents)
     ]
 
+def recognize_include_spec_as_file(include_spec: IncludeSpec, header_extension: str) -> File | SystemInclude | UnknownInclude:
+    if include_spec.system is False:
+        file = get_file_for_include_path(include_spec.path, header_extension)
+        if file is None:
+            return UnknownInclude(include_spec.path)
+        else:
+            return file
+    else:
+        return SystemInclude(include_spec.path)
+
 def find_includes_in_cpp_file_contents(contents: str, header_extension: str) -> Sequence[File | SystemInclude | UnknownInclude]:
     result: List[File | SystemInclude | UnknownInclude] = []
-    for include_spec in find_include_specs_in_cpp_file_contents(contents, header_extension):
-        if include_spec.system is False:
-            file = get_file_for_include_path(include_spec.path, header_extension)
-            if file is None:
-                result.append(UnknownInclude(include_spec.path))
-            else:
-                result.append(file)
-        else:
-            result.append(SystemInclude(include_spec.path))
+    for include_spec in find_include_specs_in_cpp_file_contents(contents):
+        result.append(recognize_include_spec_as_file(include_spec, header_extension))
     return result
-        
+
+def find_include_specs_in_dtgen_toml_file_contents(contents: str) -> Sequence[IncludeSpec]:
+    try:
+        raw = tomllib.loads(contents)
+    except tomllib.TOMLDecodeError as e:
+        raise RuntimeError("Failed to load toml") from e
+
+    includes = raw.get('includes', tuple()) 
+    src_includes = raw.get('src_includes', tuple())
+
+    return [
+        parse_include_spec(include) for include in itertools.chain(includes, src_includes)
+    ]
+
+def find_includes_in_dtgen_toml_file_contents(contents: str, header_extension: str) -> Sequence[File | SystemInclude | UnknownInclude]:   
+    return [
+        recognize_include_spec_as_file(include_spec, header_extension) 
+        for include_spec in 
+        find_include_specs_in_dtgen_toml_file_contents(contents)
+    ]
+
 def replace_include_in_cpp_file_contents(contents: str, curr: PurePath, goal: PurePath) -> str:
     def do_replace(s: str, open_delim: str, close_delim: str) -> str:
         replaced, _ = re.subn(
@@ -157,3 +193,29 @@ def replace_file_group_include_in_dtg_toml_file_contents(contents: str, curr: Fi
     )
 
     return contents
+
+def find_occurrences_of_include(repo_file_tree: FileTree, include: IncludeSpec, extension_config: ExtensionConfig) -> Set[File]:
+    return set(_find_occurrences_of_include(repo_file_tree, include, extension_config))
+
+def _find_occurrences_of_include(repo_file_tree: FileTree, include: IncludeSpec, extension_config: ExtensionConfig) -> Iterator[File]:
+    for file in scan_repo_for_files(repo_file_tree, extension_config):
+        if isinstance(file, File):
+            path = get_repo_rel_path(file, extension_config=extension_config).path
+            match file.role:
+                case RoleInGroup.GENERATED_HEADER | RoleInGroup.GENERATED_SOURCE:
+                    continue
+                case RoleInGroup.DTGEN_TOML:
+                    if include in find_include_specs_in_dtgen_toml_file_contents(
+                        repo_file_tree.get_file_contents(path),
+                    ):
+                        yield file
+                case (
+                    RoleInGroup.PUBLIC_HEADER 
+                    | RoleInGroup.SOURCE
+                    | RoleInGroup.TEST
+                    | RoleInGroup.BENCHMARK
+                ):
+                    if include in find_include_specs_in_cpp_file_contents(
+                        repo_file_tree.get_file_contents(path),
+                    ):
+                        yield file

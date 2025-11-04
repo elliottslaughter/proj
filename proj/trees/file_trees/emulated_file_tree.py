@@ -156,8 +156,12 @@ class EmulatedFileTree(MutableFileTreeWithMtime):
         expanded: Dict[PurePath, PathRecord] = {}
         for p, record in m.items():
             for parent in p.parents:
-                assert expanded.get(parent, None) is None
-                expanded[parent] = PathRecord(contents=None, mtime=curr_time)
+                existing_parent = expanded.get(parent, None)
+                new_parent = PathRecord(contents=None, mtime=curr_time)
+                if existing_parent is None:
+                    expanded[parent] = new_parent
+                else:
+                    assert new_parent == existing_parent
             expanded[p] = record
         return EmulatedFileTree(expanded, curr_time) 
 

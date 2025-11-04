@@ -11,6 +11,7 @@ from typing import (
     Callable,
     Optional,
     Iterable,
+    Set,
 )
 from . import subprocess_trace as subprocess
 import os
@@ -102,8 +103,15 @@ from .trees import (
 from .parse_project import find_repo, parse_repo_path, parse_file_path
 from .utils import map_optional
 from .file_group_info import get_file_group_info
-from .paths import RepoRelPath
-
+from .paths import (
+    RepoRelPath, 
+    File,
+)
+from .unparse_project import get_repo_rel_path
+from .includes import (
+    parse_include_spec,
+    find_occurrences_of_include,
+)
 
 _l = logging.getLogger(name="proj")
 
@@ -711,6 +719,30 @@ def main_move(args: MainMoveArgs) -> int:
     return STATUS_OK
 
 @dataclass(frozen=True)
+class MainFindIncludeArgs:
+    path: Path
+    include: str
+    verbosity: int
+
+def main_find_include(args: MainFindIncludeArgs) -> int:
+    config = get_config(args.path)
+
+    repo = config.repo
+    repo_file_tree = load_filesystem_for_repo(repo)
+
+    include_spec = parse_include_spec(args.include)
+    found: Set[File] = find_occurrences_of_include(repo_file_tree, include_spec, config.extension_config)
+
+    for file in found:
+        repo_rel_path = get_repo_rel_path(file, config.extension_config)
+        print(str(repo_rel_path.path))
+    
+    if len(found) == 0:
+        fail_with_error('No matches found.')
+
+    return STATUS_OK
+
+@dataclass(frozen=True)
 class MainLintArgs:
     path: Path
     files: Sequence[Path]
@@ -981,6 +1013,11 @@ def make_parser() -> argparse.ArgumentParser:
     move_p.add_argument("--skip-update-includes", action="store_true")
     move_p.add_argument("--skip-update-ifndefs", action="store_true")
     add_verbosity_args(move_p)
+
+    find_include_p = subparsers.add_parser("find-include")
+    set_main_signature(find_include_p, main_find_include, MainFindIncludeArgs)
+    find_include_p.add_argument("include", type=str)
+    add_verbosity_args(find_include_p)
 
     lint_p = subparsers.add_parser("lint")
     set_main_signature(lint_p, main_lint, MainLintArgs)

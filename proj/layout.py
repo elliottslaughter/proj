@@ -34,11 +34,11 @@ class IncompleteGroup:
 
 @dataclass(frozen=True)
 class UnrecognizedFile:
-    path: PurePath
+    path: LibraryRelPath
 
 @dataclass(frozen=True)
 class KnownFile:
-    path: PurePath
+    path: LibraryRelPath
 
 
 def scan_library_for_files(
@@ -49,21 +49,23 @@ def scan_library_for_files(
     def try_to_recognize(
         p: PurePath
     ) -> KnownFile | File | UnrecognizedFile:
+        lib_rel_path = LibraryRelPath(p, library)
+
         if p.name == 'README.md':
-            return KnownFile(p)
+            return KnownFile(lib_rel_path)
         allowed_cmake_files = [
             PurePath('CMakeLists.txt'),
             PurePath('test/CMakeLists.txt'),
             PurePath('benchmark/CMakeLists.txt'),
         ]
         if p in allowed_cmake_files:
-            return KnownFile(p)
+            return KnownFile(lib_rel_path)
 
         file = parse_file_path(LibraryRelPath(p, library), extension_config)
         if file is not None:
             return file
         else:
-            return UnrecognizedFile(p)
+            return UnrecognizedFile(lib_rel_path)
     
     yield from map(try_to_recognize, library_path_tree.files())
 

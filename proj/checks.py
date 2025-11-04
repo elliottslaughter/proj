@@ -49,6 +49,7 @@ from .trees import (
 from .paths import (
     File,
     RoleInGroup,
+    RepoRelPath,
 )
 from .ifndef import (
     get_current_ifndef,
@@ -85,7 +86,8 @@ def run_layout_check(
             _l.warn('Incomplete file group %s: missing %s', error.file_group, ', '.join(map(str, (error.missing))))
             failed = True
         elif isinstance(error, UnrecognizedFile):
-            _l.warn('Unrecognized file at %s', error.path)
+            path: RepoRelPath = get_repo_rel_path(error.path, extension_config=extension_config)
+            _l.warn('Unrecognized file at %s', path)
             failed = True
     if failed:
         fail_with_error("Layout check failed.")
