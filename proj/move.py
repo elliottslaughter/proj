@@ -23,6 +23,9 @@ from .trees import (
     MutableTracedPathTreeByWrapping,
     EmulatedFileTree,
     EmulatedPathTree,
+    AllowMask,
+    MaskedPathTree,
+    MaskedFileTree,
 )
 import io
 from .utils import (
@@ -159,9 +162,29 @@ def perform_file_group_move(
         assert isinstance(repo_path_tree, TracedMutablePathTree)
         print(render_path_diff(repo_path_tree.get_path_trace()))
 
+def load_repo_tree_for_dry_run(repo_file_tree: MutableFileTree) -> 'MutableTracedFileTreeByWrapping':
+    mask = AllowMask.from_iter([
+        "lib/",
+        "bin/",
+    ])
+
+    masked_path_tree = MaskedPathTree(
+        repo_file_tree,
+        mask,
+    )
+
+    masked_file_tree = MaskedFileTree(
+        masked_path_tree,
+        repo_file_tree,
+    )
+
+    return MutableTracedFileTreeByWrapping(
+        file_tree_to_emulated(masked_file_tree),
+    )
+
 
 def perform_file_group_move_with_include_and_ifndef_update(
-    repo_path_tree: MutableFileTree,
+    repo_file_tree: MutableFileTree,
     src: RepoRelPath,
     dst: RepoRelPath,
     extension_config: ExtensionConfig,
@@ -171,9 +194,7 @@ def perform_file_group_move_with_include_and_ifndef_update(
     dry_run: bool,
 ) -> None:
     if dry_run:
-        repo_path_tree = MutableTracedFileTreeByWrapping(
-            file_tree_to_emulated(repo_path_tree),
-        )
+        repo_file_tree = load_repo_tree_for_dry_run(repo_file_tree)
 
     src_file = parse_file_path(src, extension_config)
     assert src_file is not None
@@ -184,7 +205,7 @@ def perform_file_group_move_with_include_and_ifndef_update(
     assert dst_file is not None
 
     _perform_file_group_move(
-        repo_path_tree=repo_path_tree,
+        repo_path_tree=repo_file_tree,
         src_file=src_file,
         dst_file=dst_file,
         extension_config=extension_config,
@@ -193,14 +214,14 @@ def perform_file_group_move_with_include_and_ifndef_update(
 
     if update_ifndefs:
         fix_ifndefs_in_file(
-            repo_path_tree,
+            repo_file_tree,
             dst_file.group.public_header,
             ifndef_base,
             extension_config,
             must_exist=False,
         )
         fix_ifndefs_in_file(
-            repo_path_tree,
+            repo_file_tree,
             dst_file.group.generated_header,
             ifndef_base,
             extension_config,
@@ -208,36 +229,38 @@ def perform_file_group_move_with_include_and_ifndef_update(
         )
 
     if update_includes:
-        for file in scan_repo_for_files(repo_path_tree, extension_config):
+        for file in scan_repo_for_files(repo_file_tree, extension_config):
             if isinstance(file, File):
                 file_path = get_repo_rel_path(file, extension_config).path
                 if file.role == RoleInGroup.DTGEN_TOML:
-                    file_contents = repo_path_tree.get_file_contents(file_path)
+                    file_contents = repo_file_tree.get_file_contents(file_path)
                     updated_contents = replace_file_group_include_in_cpp_file_contents(
                         contents=file_contents,
                         curr=src_file.group,
                         goal=dst_file.group,
                         header_extension=extension_config.header_extension,
                     )
-                    repo_path_tree.set_file_contents(
-                        file_path, 
-                        updated_contents,
-                        exist_ok=True,
-                    )
+                    if file_contents != updated_contents:
+                        repo_file_tree.set_file_contents(
+                            file_path, 
+                            updated_contents,
+                            exist_ok=True,
+                        )
                 else:
-                    file_contents = repo_path_tree.get_file_contents(file_path)
+                    file_contents = repo_file_tree.get_file_contents(file_path)
                     updated_contents = replace_file_group_include_in_dtg_toml_file_contents(
                         contents=file_contents,
                         curr=src_file.group,
                         goal=dst_file.group,
                         header_extension=extension_config.header_extension,
                     )
-                    repo_path_tree.set_file_contents(
-                        file_path, 
-                        updated_contents,
-                        exist_ok=True,
-                    )
+                    if file_contents != updated_contents:
+                        repo_file_tree.set_file_contents(
+                            file_path, 
+                            updated_contents,
+                            exist_ok=True,
+                        )
 
     if dry_run:
-        assert isinstance(repo_path_tree, TracedMutableFileTree)
-        print(render_file_diff(repo_path_tree.get_file_trace()))
+        assert isinstance(repo_file_tree, TracedMutableFileTree)
+        print(render_file_diff(repo_file_tree.get_file_trace()))

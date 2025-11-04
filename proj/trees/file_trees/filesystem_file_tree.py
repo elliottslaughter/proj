@@ -10,7 +10,11 @@ class FilesystemFileTree(MutableFileTreeWithMtime, FilesystemPathTree):
         p: PurePath,
     ) -> str:
         assert self.has_file(p), p
-        return (self._root.raw / p).read_text()
+        abs_path = (self._root.raw / p)
+        try:
+            return abs_path.read_text()
+        except UnicodeDecodeError as e:
+            raise RuntimeError(f'Failed to load data from path {abs_path}') from e
 
     def set_file_contents(
         self, 

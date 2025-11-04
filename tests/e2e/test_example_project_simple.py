@@ -838,6 +838,51 @@ def test_move_to_directory() -> None:
 
 @pytest.mark.e2e
 @pytest.mark.slow
+def test_move_dry_run() -> None:
+    with project_instance() as d:
+        src_path = Path('./lib/lib1/include/lib1/example_enum.h')
+        src_cc_path = Path('./lib/lib1/src/lib1/example_enum.cc')
+        src_test_path = Path('./lib/lib1/test/src/lib1/example_enum.cc')
+        src_toml_path = Path('./lib/lib1/include/lib1/example_enum.dtg.toml')
+        all_src_paths = [
+            src_path,
+            src_cc_path,
+            src_test_path,
+            src_toml_path,
+        ]
+
+        dst_path = Path('./lib/lib1/include/lib1/example_enum_moved.h')
+        dst_cc_path = Path('./lib/lib1/src/lib1/example_enum_moved.cc')
+        dst_test_path = Path('./lib/lib1/test/src/lib1/example_enum_moved.cc')
+        dst_toml_path = Path('./lib/lib1/include/lib1/example_enum_moved.dtg.toml')
+
+        for src_p in all_src_paths:
+            assert (d / src_p).is_file()
+
+        pre_contents = {
+            p: (d / p).read_bytes() for p in all_src_paths
+        }
+
+        def check_not_moved(src: Path, dst: Path) -> None:
+            assert (d / src).is_file()
+            assert not (d / dst).is_file()
+            assert (d / src).read_bytes() == pre_contents[src]
+
+        require_successful(run(d, [
+            'mv',
+            '-n',
+            str(src_path),
+            str(dst_path),
+        ]))
+
+        check_not_moved(src_path, dst_path)
+        check_not_moved(src_cc_path, dst_cc_path)
+        check_not_moved(src_test_path, dst_test_path)
+        check_not_moved(src_toml_path, dst_toml_path)
+
+
+@pytest.mark.e2e
+@pytest.mark.slow
 def test_check_layout() -> None:
     with project_instance() as d:
         check_cmd_succeeds(d, [

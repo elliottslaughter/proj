@@ -702,11 +702,11 @@ def main_move(args: MainMoveArgs) -> int:
     dst_repo_rel = parse_repo_path(args.dst.absolute(), root_path_tree)
     assert dst_repo_rel is not None
 
-    repo_path_tree = load_filesystem_for_repo(config.repo)
+    repo_file_tree = load_filesystem_for_repo(config.repo)
 
     assert args.src.is_file()
     perform_file_group_move_with_include_and_ifndef_update( 
-        repo_path_tree=repo_path_tree,
+        repo_file_tree=repo_file_tree,
         src=src_repo_rel,
         dst=dst_repo_rel,
         extension_config=config.extension_config,
@@ -791,6 +791,17 @@ def main_format(args: Any) -> int:
             assert file.is_file()
         files = list(args.files)
     run_formatter(config, files)
+    return STATUS_OK
+
+
+@dataclass(frozen=True)
+class MainFixIfndefsArgs:
+    path: Path
+    files: Sequence[Path]
+    verbosity: int
+
+
+def main_fix_ifndefs(args: Any) -> int:
     return STATUS_OK
 
 
@@ -999,6 +1010,11 @@ def make_parser() -> argparse.ArgumentParser:
     set_main_signature(format_p, main_format, MainFormatArgs)
     format_p.add_argument("files", nargs="*", type=Path)
     add_verbosity_args(format_p)
+
+    fix_ifndefs_p = subparsers.add_parser("fix-ifndefs")
+    set_main_signature(fix_ifndefs_p, main_fix_ifndefs, MainFixIfndefsArgs)
+    fix_ifndefs_p.add_argument("files", nargs="*", type=Path)
+    add_verbosity_args(fix_ifndefs_p)
 
     check_p = subparsers.add_parser("check")
     set_main_signature(check_p, main_check, MainCheckArgs)

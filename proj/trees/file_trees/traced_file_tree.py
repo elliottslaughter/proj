@@ -10,7 +10,6 @@ from ..file_tree import (
 from typing import (
     List,
     Union,
-    Self,
     Iterator,
 )
 from pathlib import PurePath
@@ -59,7 +58,7 @@ class MutableTracedFileTreeByWrapping(TracedMutableFileTree):
         )
 
     def has_file(self, p: PurePath) -> bool:
-        return self.has_file(p=p)
+        return self._wrapped.has_file(p=p)
 
     def with_extension(self, extension: str) -> Iterator[PurePath]:
         return self._wrapped.with_extension(extension=extension)
@@ -127,10 +126,11 @@ class MutableTracedFileTreeByWrapping(TracedMutableFileTree):
         if self._wrapped.has_file(p):
             curr_contents = self._wrapped.get_file_contents(p)
             diff = '\n'.join(
-                difflib.unified_diff(
-                    contents,
-                    curr_contents,
-                )
+                list(difflib.unified_diff(
+                    curr_contents.splitlines(),
+                    contents.splitlines(),
+                    lineterm='\n',
+                ))[2:]
             )
 
             self._trace.append(

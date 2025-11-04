@@ -19,12 +19,15 @@ from .file_trees import (
     FilesystemFileTree, 
     EmulatedFileTree,
     MutableTracedFileTreeByWrapping,
+    MaskedFileTree,
 )
 from .path_trees import (
     EmulatedPathTree, 
     PathType,
     MutableTracedPathTreeByWrapping,
     MaskedPathTree,
+    AllowMask,
+    IgnoreMask,
 )
 from .filesystem import (
     load_root_filesystem, 

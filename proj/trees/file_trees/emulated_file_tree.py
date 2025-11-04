@@ -48,7 +48,10 @@ class EmulatedFileTree(MutableFileTreeWithMtime):
                 yield path
 
     def rename(self, src: PurePath, dst: PurePath) -> None:
-        raise NotImplementedError()
+        assert self.has_file(src)
+        assert not self.has_file(dst)
+        self._m[dst] = self._m[src]
+        del self._m[src]
 
     def mkdir(
         self, 

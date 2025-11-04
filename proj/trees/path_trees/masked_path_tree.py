@@ -8,24 +8,68 @@ from ..path_tree import (
     PathTree,
 )
 from proj.utils import saturating_relative_to
+from dataclasses import dataclass
 
-class MaskedPathTree(PathTree):
-    _wrapped: PathTree
-    _mask: FrozenSet[PurePath]
+@dataclass(frozen=True)
+class AllowMask:
+    paths: FrozenSet[PurePath]
 
-    def __init__(self, path_tree: PathTree, to_hide: Iterable[PurePath]) -> None:
-        self._wrapped = path_tree
-        self._mask = frozenset(to_hide)
-
-    @property
-    def masked_out(self) -> FrozenSet[PurePath]:
-        return self._mask
-
-    def _is_masked(self, p: PurePath) -> bool:
-        for _p in self._mask:
+    def is_allowed(self, p: PurePath) -> bool:
+        for _p in self.paths:
             if p.is_relative_to(_p):
                 return True
         return False
+
+    def restrict_to_subdir(self, p: PurePath) -> 'AllowMask':
+        return AllowMask.from_iter(
+            rel for _p in self.paths if (rel := saturating_relative_to(_p, p)) is not None
+        )
+
+    @staticmethod
+    def from_iter(it: Iterable[str | PurePath]) -> 'AllowMask':
+        return AllowMask(frozenset([
+            PurePath(p) for p in it
+        ]))
+
+@dataclass(frozen=True)
+class IgnoreMask:
+    paths: FrozenSet[PurePath]
+
+    def is_allowed(self, p: PurePath) -> bool:
+        for _p in self.paths:
+            if p.is_relative_to(_p):
+                return False
+        return True
+
+    def restrict_to_subdir(self, p: PurePath) -> 'IgnoreMask':
+        return IgnoreMask.from_iter(
+            rel for _p in self.paths if (rel := saturating_relative_to(_p, p)) is not None
+        )
+
+    @staticmethod
+    def from_iter(it: Iterable[str | PurePath]) -> 'IgnoreMask':
+        return IgnoreMask(frozenset([
+            PurePath(p) for p in it
+        ]))
+
+class MaskedPathTree(PathTree):
+    _wrapped: PathTree
+    _mask: AllowMask | IgnoreMask
+
+    def __init__(
+        self, 
+        path_tree: PathTree, 
+        mask: AllowMask | IgnoreMask,
+    ) -> None:
+        self._wrapped = path_tree
+        self._mask = mask
+
+    @property
+    def mask(self) -> AllowMask | IgnoreMask:
+        return self._mask
+
+    def _is_masked(self, p: PurePath) -> bool:
+        return not self._mask.is_allowed(p)
 
     def _filter_masked(self, i: Iterable[PurePath]) -> Iterator[PurePath]:
         for p in i:
@@ -48,9 +92,7 @@ class MaskedPathTree(PathTree):
     def restrict_to_subdir(self, p: PurePath) -> 'MaskedPathTree':
         return MaskedPathTree(
             path_tree=self._wrapped.restrict_to_subdir(p),
-            to_hide=[
-                rel for _p in self._mask if (rel := saturating_relative_to(_p, p)) is not None
-            ],
+            mask=self._mask.restrict_to_subdir(p),
         )
 
     def has_file(self, p: PurePath) -> bool:

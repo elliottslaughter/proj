@@ -10,6 +10,7 @@ from .paths import (
 from proj.trees import (
     PathTree,
     MaskedPathTree,
+    IgnoreMask,
 )
 from typing import (
     Dict,
@@ -162,7 +163,7 @@ def run_layout_check(
 
     masked_path_tree: PathTree = MaskedPathTree(
         repo_path_tree,
-        [p.path for p in ignore_paths],
+        IgnoreMask.from_iter([p.path for p in ignore_paths]),
     )
 
     file_groups: Dict[FileGroup, Set[RoleInGroup]] = defaultdict(set)

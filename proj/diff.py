@@ -46,7 +46,7 @@ def render_file_diff(
             case RmFileTrace(path):
                 f.write(f'd {path}\n')
             case CreateFileTrace(path, content):
-                f.write(f'c {path}\n' + textwrap.indent(content, '  ')) 
+                f.write(f'c {path}\n' + textwrap.indent(content, '  ') + '\n') 
             case ModifyFileTrace(path, content):
-                f.write(f'm {path}\n' + textwrap.indent(content, '  ')) 
+                f.write(f'm {path}\n' + textwrap.indent(content, '  ') + '\n') 
     return f.getvalue()

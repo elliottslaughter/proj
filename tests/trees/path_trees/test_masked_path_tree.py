@@ -2,6 +2,7 @@ from proj.trees import (
     EmulatedPathTree,
     PathType,
     MaskedPathTree,
+    IgnoreMask,
 )
 from pathlib import PurePath
 
@@ -25,7 +26,7 @@ def test_masked_path_tree():
 
     masked_path_tree = MaskedPathTree(
         path_tree, 
-        [PurePath('include/example')],
+        IgnoreMask.from_iter(['include/example']),
     )
 
     assert path_tree.has_path(example_variant_path)
@@ -49,20 +50,20 @@ def test_masked_path_tree_subdir_restriction() -> None:
 
     masked_path_tree = MaskedPathTree(
         path_tree, 
-        [
-            PurePath('include/example'),
-            PurePath('include/example2'),
-        ],
+        IgnoreMask.from_iter([
+            'include/example',
+            'include/example2',
+        ]),
     )
 
     sub_masked_path_tree = masked_path_tree.restrict_to_subdir(PurePath('include'))
-    assert sub_masked_path_tree.masked_out == frozenset([
-        PurePath('example'),
-        PurePath('example2'),
+    assert sub_masked_path_tree.mask == IgnoreMask.from_iter([
+        'example',
+        'example2',
     ])
 
     sub_masked_path_tree2 = masked_path_tree.restrict_to_subdir(PurePath('include/example'))
-    assert sub_masked_path_tree2.masked_out == frozenset([
+    assert sub_masked_path_tree2.mask == IgnoreMask.from_iter([
         PurePath('.'),
     ])
     assert set(sub_masked_path_tree2.files()) == set()

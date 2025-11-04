@@ -43,25 +43,21 @@ def test_render_file_diff() -> None:
         MkDirTrace(PurePath('a/d')),
         CreateFileTrace(
             PurePath('a/f.txt'),
-            textwrap.dedent(
-                '''
-                a
-                b
-                c
-                '''
-            ).strip() + '\n',
+            '\n'.join([
+                'a',
+                'b',
+                'c',
+            ]),
         ),
         MoveTrace(PurePath('a/c.txt'), PurePath('a/d/e.txt')),
         RmFileTrace(PurePath('a/a.txt')),
         ModifyFileTrace(
             PurePath('a/f.txt'),
-            textwrap.dedent(
-                '''
-                d
-                e
-                f
-                '''
-            ).strip() + '\n',
+            '\n'.join([
+                'd',
+                'e',
+                'f',
+            ]),
         ),
     ]
 

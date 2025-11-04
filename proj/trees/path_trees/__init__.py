@@ -1,4 +1,4 @@
 from .emulated_path_tree import EmulatedPathTree, PathType
 from .traced_path_tree import MutableTracedPathTreeByWrapping
 from .filesystem_path_tree import FilesystemPathTree
-from .masked_path_tree import MaskedPathTree
+from .masked_path_tree import MaskedPathTree, AllowMask, IgnoreMask
