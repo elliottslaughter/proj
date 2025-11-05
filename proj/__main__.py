@@ -188,6 +188,11 @@ class MainCmakeArgs:
     dtgen_skip: bool
     verbosity: int
 
+def get_repo_root(p: Path) -> Path:
+    fs = load_root_filesystem()
+    repo = find_repo(p, fs)
+    assert repo is not None
+    return Path(repo.path)
 
 def get_config(p: Path) -> ProjectConfig:
     fs = load_root_filesystem()
