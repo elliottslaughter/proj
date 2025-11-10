@@ -26,6 +26,7 @@
 , tree
 , lcov
 , gdb
+, pytest-xdist
 # TODO use these if we ever update nixpkgs
 # , writableTmpDirAsHomeHook
 # , addBinAsPathHook
@@ -69,7 +70,7 @@ buildPythonApplication {
     export HOME="$(mktemp -d)"
     export PATH="$out/bin:$PATH"
     mypy proj/ tests/
-    pytest -x -s -vvvv tests/ -m 'not no_sandbox' --log-level=DEBUG --slow
+    TMP=/dev/shm pytest -n $NIX_BUILD_CORES --dist loadgroup -x -s -vvvv tests/ -m 'not no_sandbox' --log-level=DEBUG --slow
 
     runHook postCheck
   '';
@@ -86,6 +87,7 @@ buildPythonApplication {
   nativeCheckInputs = [
     pytest
     pytest-skip-slow
+    pytest-xdist
     mypy
     nclib
     gdb

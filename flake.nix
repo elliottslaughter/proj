@@ -88,6 +88,7 @@
               black
               toml
               pytest
+              pytest-xdist
               nclib
             ])
             (with self.packages.${system}; [

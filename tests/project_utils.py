@@ -14,6 +14,7 @@ from proj.config_file import (
     ProjectConfig,
     load_config,
 )
+import os
 
 MAX_VERBOSITY = 100
 
@@ -30,7 +31,8 @@ def TemporaryDirectory(delete: bool = True) -> Iterator[str]:
 
 @contextmanager
 def project_instance(project_name: str) -> Iterator[Path]:
-    with TemporaryDirectory(delete=False) as d:
+    no_delete = os.environ.get('PROJ_NO_DELETE') == 'yes'
+    with TemporaryDirectory(delete=not no_delete) as d:
         dst = Path(d) / project_name
         shutil.copytree(src=TEST_PROJECTS_DIR / project_name, dst=dst)
         yield dst

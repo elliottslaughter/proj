@@ -305,7 +305,7 @@ def test_test_test_case_debug() -> None:
 
             p.recv_until('(gdb) ')
             p.sendline('r')
-            p.recv_until(') exited normally]', timeout=0.1)
+            p.recv_until(') exited normally]', timeout=1.0)
             exited_normally = not p.timed_out
             p.kill()
             return exited_normally
@@ -441,6 +441,7 @@ def test_profile_benchmark_case_callgrind() -> None:
 @pytest.mark.e2e
 @pytest.mark.slow
 @pytest.mark.no_sandbox
+@pytest.mark.xdist_group(name="perf")
 def test_profile_test_suite_perf() -> None:
     with cmade_project_instance() as d:
         result = require_successful(run(d, [
@@ -456,6 +457,7 @@ def test_profile_test_suite_perf() -> None:
 @pytest.mark.e2e
 @pytest.mark.slow
 @pytest.mark.no_sandbox
+@pytest.mark.xdist_group(name="perf")
 def test_profile_test_case_perf() -> None:
     with cmade_project_instance() as d:
         result = require_successful(run(d, [
@@ -470,6 +472,7 @@ def test_profile_test_case_perf() -> None:
 @pytest.mark.e2e
 @pytest.mark.slow
 @pytest.mark.no_sandbox
+@pytest.mark.xdist_group(name="perf")
 def test_profile_benchmark_suite_perf() -> None:
     with cmade_project_instance() as d:
         result = require_successful(run(d, [
@@ -484,6 +487,7 @@ def test_profile_benchmark_suite_perf() -> None:
 @pytest.mark.e2e
 @pytest.mark.slow
 @pytest.mark.no_sandbox
+@pytest.mark.xdist_group(name="perf")
 def test_profile_benchmark_case_perf() -> None:
     with cmade_project_instance() as d:
         result = require_successful(run(d, [
