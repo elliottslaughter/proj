@@ -7,12 +7,10 @@ from typing import (
     Any,
     Mapping,
 )
-from pathlib import Path
-from proj.dtgen.render_utils import (
+from proj.includes import (
     IncludeSpec,
     parse_include_spec,
 )
-import proj.toml as toml
 from proj.json import Json
 
 
@@ -135,20 +133,15 @@ def parse_struct_spec(raw: Mapping[str, Any]) -> StructSpec:
     )
 
 
-def load_spec(path: Path) -> StructSpec:
-    try:
-        with path.open("r") as f:
-            raw = toml.loads(f.read())
-    except toml.TOMLDecodeError as e:
-        raise RuntimeError(f"Failed to load spec {path}") from e
-    try:
-        spec = parse_struct_spec(raw)
-        if Feature.RAPIDCHECK in spec.features and any(
-            field.indirect for field in spec.fields
-        ):
-            raise RuntimeError(
-                f"rapidcheck not supported for indirect fields, found in spec {path}"
-            )
-        return spec
-    except KeyError as e:
-        raise RuntimeError(f"Failed to parse spec {path}") from e
+# def load_spec(raw: Json) -> StructSpec:
+#     try:
+#         spec = parse_struct_spec(raw)
+#         if Feature.RAPIDCHECK in spec.features and any(
+#             field.indirect for field in spec.fields
+#         ):
+#             raise RuntimeError(
+#                 f"rapidcheck not supported for indirect fields, found in spec"
+#             )
+#         return spec
+#     except KeyError as e:
+#         raise RuntimeError(f"Failed to parse spec {path}") from e

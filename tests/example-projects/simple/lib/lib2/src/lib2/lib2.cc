@@ -1,5 +1,6 @@
 #include "lib2/lib2.h"
 #include "lib1/lib1.h"
+#include "lib1/example_enum.h"
 #include <iostream>
 
 namespace TestProject {

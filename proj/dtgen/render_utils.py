@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from contextlib import contextmanager
 from typing import (
     Iterator,
@@ -7,8 +6,10 @@ from typing import (
     Optional,
     TypeVar,
 )
-from proj.json import Json
-
+from proj.includes import (
+    IncludeSpec,
+)
+from pathlib import PurePath
 
 @contextmanager
 def sline(f: TextIO) -> Iterator[None]:
@@ -62,25 +63,6 @@ def elseblock(f: TextIO) -> Iterator[None]:
     f.write("else ")
     with braces(f):
         yield
-
-
-@dataclass(frozen=True, order=True)
-class IncludeSpec:
-    path: str
-    system: bool
-
-    def json(self) -> Json:
-        return {
-            "path": self.path,
-            "system": self.system,
-        }
-
-
-def parse_include_spec(raw: str) -> IncludeSpec:
-    if raw.startswith("<") and raw.endswith(">"):
-        return IncludeSpec(path=raw[1:-1], system=True)
-    else:
-        return IncludeSpec(path=raw, system=False)
 
 
 def render_includes(includes: Sequence[IncludeSpec], f: TextIO) -> None:

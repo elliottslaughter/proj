@@ -5,8 +5,14 @@ from typing import (
     Collection,
     FrozenSet,
     Iterable,
+    Iterator,
 )
 from functools import reduce
+from pathlib import PurePath, Path
+import re
+import logging
+
+_l = logging.getLogger(__name__)
 
 T = TypeVar("T")
 T1 = TypeVar("T1")
@@ -47,5 +53,47 @@ def map_optional(x: Optional[T1], f: Callable[[T1], T2]) -> Optional[T2]:
     else:
         return f(x)
 
+def common_ancestors(lhs: PurePath, rhs: PurePath) -> Iterator[PurePath]:
+    for l, r in zip(lhs.parents[::-1], rhs.parents[::-1]):
+        if l == r:
+            yield l
+        else:
+            break
+
+def nearest_common_ancestor(lhs: PurePath, rhs: PurePath) -> PurePath:
+    for anc in common_ancestors(lhs, rhs):
+        pass
+    assert isinstance(anc, PurePath)
+    return anc
+
+
 def num_true(c: Iterable[bool]) -> int:
     return sum(int(b) for b in c)
+
+P = TypeVar('P', PurePath, Path)
+
+def with_suffixes(p: P, suffs: str) -> P:
+    name = p.name
+    while "." in name:
+        name = name[: name.rfind(".")]
+    return p.with_name(name + suffs)
+
+def with_suffix_appended(p: P, suff: str) -> P:
+    assert suff.startswith(".")
+    return p.with_name(p.name + suff)
+
+def with_suffix_removed(p: P, n: int = 1) -> P:
+    for _ in range(n):
+        p = p.with_suffix("")
+    return p
+
+def saturating_relative_to(child: PurePath, parent: PurePath) -> Optional[PurePath]:
+    result: Optional[PurePath]
+    if parent.is_relative_to(child):
+        result = PurePath('.')
+    elif child.is_relative_to(parent):
+        result = child.relative_to(parent)
+    else:
+        result = None
+    _l.debug('saturating_relative_to(%s, %s) -> %s', child, parent, result)
+    return result

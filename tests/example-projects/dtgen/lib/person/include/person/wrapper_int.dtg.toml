@@ -1,0 +1,17 @@
+namespace = "FlexFlow"
+name = "wrapper_int_t"
+type = "struct"
+features = [
+  "eq",
+  "ord",
+  "hash",
+  "json",
+  "rapidcheck",
+  "fmt",
+]
+
+includes = []
+
+[[fields]]
+name = "raw_int"
+type = "int"

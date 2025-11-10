@@ -1,0 +1,20 @@
+namespace = "FlexFlow"
+name = "wrapper_t"
+type = "struct"
+features = [
+  "eq",
+  "ord",
+  "hash",
+  "json",
+  "rapidcheck",
+  "fmt",
+]
+template_params = ["T"]
+
+includes = [
+  "<string>"
+]
+
+[[fields]]
+name = "value"
+type = "T"

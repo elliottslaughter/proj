@@ -1,0 +1,23 @@
+namespace = "FlexFlow"
+name = "VariantHoldingTuple"
+type = "variant"
+features = [
+  "eq",
+]
+
+includes = [
+  "<tuple>",
+  "<string>",
+]
+
+template_params = [
+  'T1', 'T2',
+]
+
+[[values]]
+type = "std::tuple<std::string, T1, T2>"
+key = "tuple"
+
+[[values]]
+type = "std::pair<T1, T2>"
+key = "pair"

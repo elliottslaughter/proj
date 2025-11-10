@@ -1,0 +1,24 @@
+namespace = "FlexFlow"
+name = "Color"
+type = "enum"
+docstring = """
+A color 
+
+(yes this is the worst docstring ever)
+"""
+features = [
+  "hash",
+  "fmt",
+  "rapidcheck",
+  "json",
+]
+
+[[values]]
+name = "RED"
+
+[[values]]
+name = "BLUE"
+
+[[values]]
+name = "YELLOW"
+docstring = "No RGB for us"

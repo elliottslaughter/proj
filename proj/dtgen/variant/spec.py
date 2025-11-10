@@ -7,7 +7,7 @@ from typing import (
     Any,
     Mapping,
 )
-from proj.dtgen.render_utils import (
+from proj.includes import (
     IncludeSpec,
     parse_include_spec,
 )

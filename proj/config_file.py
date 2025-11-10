@@ -4,14 +4,12 @@ from typing import (
     Optional,
     Mapping,
     Tuple,
-    Iterator,
     Union,
     FrozenSet,
 )
 from immutables import Map
 import string
 import re
-import io
 import proj.toml as toml
 from .targets import (
     BuildTarget,
@@ -37,7 +35,6 @@ from .targets import (
 import logging
 from .utils import (
     map_optional,
-    num_true,
 )
 from .json import (
     Json,
@@ -49,8 +46,21 @@ from .json import (
 from enum import (
     StrEnum,
 )
+from .paths import (
+    Repo,
+)
+from .trees import FileTree
 
 _l = logging.getLogger(__name__)
+
+@dataclass(frozen=True)
+class ExtensionConfig:
+    header_extension: str
+    src_extension: str
+
+    def __post_init__(self) -> None:
+        assert self.header_extension.startswith('.')
+        assert self.src_extension.startswith('.')
 
 
 @dataclass(frozen=True, order=True)
@@ -96,6 +106,11 @@ class ProjectConfig:
     _fix_compile_commands: Optional[bool] = None
     _test_header_path: Optional[Path] = None
     _cuda_launch_cmd: Optional[Tuple[str, ...]] = None
+    _layout_ignore_paths: Optional[Tuple[Path, ...]] = None
+
+    @property
+    def repo(self) -> Repo:
+        return Repo(self.base)
 
     @property
     def debug_build_dir(self) -> Path:
@@ -339,6 +354,13 @@ class ProjectConfig:
             return self._header_extension
 
     @property
+    def extension_config(self) -> ExtensionConfig:
+        return ExtensionConfig(
+            header_extension=self.header_extension,
+            src_extension='.cc',
+        )
+
+    @property
     def fix_compile_commands(self) -> bool:
         if self._fix_compile_commands is None:
             return False
@@ -375,22 +397,17 @@ class ProjectConfig:
             cmd = self.cuda_launch_cmd + cmd
         return cmd
 
+    @property
+    def layout_ignore_paths(self) -> Tuple[Path, ...]:
+        if self._layout_ignore_paths is None:
+            return tuple()
+        else:
+            return self._layout_ignore_paths
 
-def _possible_config_paths(d: Path) -> Iterator[Path]:
-    d = Path(d).resolve()
-    assert d.is_absolute()
-
-    for _d in [d, *d.parents]:
-        config_path = _d / ".proj.toml"
-        yield config_path
-
-
-def find_config_root(d: Path) -> Optional[Path]:
-    for possible_config in _possible_config_paths(d):
-        if possible_config.is_file():
-            return possible_config.parent
-
-    return None
+def load_repo_config(repo: Repo, file_tree: FileTree) -> ProjectConfig:
+    contents = file_tree.get_file_contents(repo.path / ".proj.toml")
+    raw = toml.loads(contents)
+    return load_parsed_config(repo, raw)
 
 
 def _load_target_config(m: Mapping[str, object]) -> Union[LibConfig, BinConfig]:
@@ -503,20 +520,22 @@ def load_str_tuple(x: object) -> Optional[Tuple[str, ...]]:
 def load_path(x: object) -> Optional[Path]:
     return map_optional(map_optional(x, require_str), lambda s: Path(s))
 
+def load_path_tuple(x: object) -> Optional[Tuple[Path, ...]]:
+    if x is None:
+        return None
+
+    list_ = require_list_of(x, require_str)
+    return tuple(Path(l) for l in list_)
 
 def load_cmake_flags(x: object) -> Optional[Map[str, str]]:
     return map_optional(x, lambda y: require_dict_of(y, require_str, require_str))
 
 
-def _load_config(d: Path) -> Optional[ProjectConfig]:
-    config_root = find_config_root(d)
-    if config_root is None:
-        return None
-
-    with (config_root / ".proj.toml").open("r") as f:
+def _load_config(repo: Repo) -> Optional[ProjectConfig]:
+    with (Path(repo.path) / ".proj.toml").open("r") as f:
         raw = toml.loads(f.read())
 
-    return load_parsed_config(config_root, raw)
+    return load_parsed_config(repo, raw)
 
 
 class ConfigKey(StrEnum):
@@ -534,9 +553,9 @@ class ConfigKey(StrEnum):
     FIX_COMPILE_COMMANDS = "fix_compile_commands"
     TEST_HEADER_PATH = "test_header_path"
     CUDA_LAUNCH_CMD = "cuda_launch_cmd"
+    LAYOUT_IGNORE_PATHS = "layout_ignore_paths"
 
-
-def load_parsed_config(config_root: Path, raw: object) -> ProjectConfig:
+def load_parsed_config(repo: Repo, raw: object) -> ProjectConfig:
     _l.debug("Loading parsed config: %s", raw)
     assert isinstance(raw, dict)
 
@@ -545,7 +564,7 @@ def load_parsed_config(config_root: Path, raw: object) -> ProjectConfig:
 
     return ProjectConfig(
         project_name=require_str(raw[ConfigKey.PROJECT_NAME]),
-        base=config_root,
+        base=Path(repo.path),
         _targets=_load_targets(raw[ConfigKey.TARGETS]),
         _default_build_targets=load_str_tuple(raw.get(ConfigKey.DEFAULT_BIN_TARGETS)),
         _default_test_targets=load_str_tuple(raw.get(ConfigKey.DEFAULT_TEST_TARGETS)),
@@ -567,472 +586,184 @@ def load_parsed_config(config_root: Path, raw: object) -> ProjectConfig:
         ),
         _test_header_path=load_path(raw.get(ConfigKey.TEST_HEADER_PATH)),
         _cuda_launch_cmd=load_str_tuple(raw.get(ConfigKey.CUDA_LAUNCH_CMD)),
+        _layout_ignore_paths=load_path_tuple(raw.get(ConfigKey.LAYOUT_IGNORE_PATHS)),
     )
 
 
-def get_config_root(d: Path) -> Path:
-    config_root = find_config_root(d)
-
-    if config_root is None:
-        s = io.StringIO()
-        s.write("Could not find config file at any of the following paths:\n")
-        for searched_path in _possible_config_paths(d):
-            s.write(f"- {searched_path}\n")
-
-        raise FileNotFoundError(s.getvalue())
-    else:
-        return config_root
-
-
-def load_config(d: Path) -> ProjectConfig:
-    config = _load_config(d)
-
-    if config is None:
-        s = io.StringIO()
-        s.write("Could not find config file at any of the following paths:\n")
-        for searched_path in _possible_config_paths(d):
-            s.write(f"- {searched_path}\n")
-
-        raise FileNotFoundError(s.getvalue())
-    else:
-        return config
-
-
-def gen_ifndef_uid(p: Union[Path, str]) -> str:
-    p = Path(p).absolute()
-    config_root = find_config_root(p)
-    assert config_root is not None
-    relpath = p.relative_to(config_root)
-    config = load_config(p)
-    unfixed = f"_{config.ifndef_name}_" + str(relpath)
-    return re.sub(r"[^a-zA-Z0-9_]", "_", unfixed).upper()
-
-
-def try_get_config(p: Union[Path, str]) -> Optional[ProjectConfig]:
-    try:
-        return get_config(p)
-    except FileNotFoundError:
-        return None
-
-
-def get_config(p: Union[Path, str]) -> ProjectConfig:
-    p = Path(p).absolute()
-    config = load_config(p)
-    return config
-
-
-def get_lib_root(p: Path) -> Path:
-    config_root = find_config_root(p)
-    assert config_root is not None
-    return config_root / "lib"
-
-
-def get_test_header_path(p: Path) -> Path:
-    config = load_config(p)
-    return config.test_header_path
-
-
-def with_suffixes(p: Path, suffs: str) -> Path:
-    name = p.name
-    while "." in name:
-        name = name[: name.rfind(".")]
-    return p.with_name(name + suffs)
-
-
-def with_suffix_appended(p: Path, suff: str) -> Path:
-    assert suff.startswith(".")
-    return p.with_name(p.name + suff)
-
-
-def with_suffix_removed(p: Path) -> Path:
-    return p.with_suffix("")
-
-
-def get_sublib_root(p: Path) -> Optional[Path]:
-    p = Path(p).resolve()
-    assert p.is_absolute()
-
-    while True:
-        src_dir = p / "src"
-        include_dir = p / "include"
-
-        src_exists = src_dir.is_dir()
-        include_exists = include_dir.is_dir()
-
-        _l.debug(
-            "get_sublib_root checking %s for %s is dir (%s) and %s is dir (%s)",
-            p,
-            src_dir,
-            src_exists,
-            include_dir,
-            include_exists,
-        )
-
-        if src_exists and include_exists:
-            return p
-
-        if p == p.parent:
-            return None
-        else:
-            p = p.parent
-
-
-def get_src_dir(p: Path) -> Optional[Path]:
-    return map_optional(get_sublib_root(p), lambda pp: pp / "src")
-
-
-def get_include_dir(p: Path) -> Optional[Path]:
-    return map_optional(get_sublib_root(p), lambda pp: pp / "include")
-
-
-def with_project_specific_extension_removed(p: Path, config: ProjectConfig) -> Path:
-    project_specific = [
-        ".struct.toml",
-        ".variant.toml",
-        ".enum.toml",
-        ".dtg" + config.header_extension,
-        ".dtg.cc",
-        ".test.cc",
-        ".cc",
-        ".cu",
-        ".cpp",
-        config.header_extension,
-    ]
-
-    suffixes = "".join(p.suffixes)
-
-    for extension in project_specific:
-        if suffixes.endswith(extension):
-            return with_suffixes(p, suffixes[: -len(extension)])
-
-    raise ValueError(f"Could not find project-specific extension for path {p}")
-
-
-@dataclass(frozen=True, order=True)
-class HeaderInfo:
-    path: Path
-    ifndef: str
-
-    def json(self) -> Json:
-        return {
-            "path": str(self.path),
-            "ifndef": self.ifndef,
-        }
-
-
-@dataclass(frozen=True, order=True)
-class PathInfo:
-    include: Path
-    generated_include: Path
-    public_header: HeaderInfo
-    private_header: HeaderInfo
-    generated_header: Optional[Path]
-    generated_source: Path
-    header: Optional[Path]
-    source: Path
-    test_source: Optional[Path]
-    benchmark_source: Optional[Path]
-    toml_path: Optional[Path]
-
-    def json(self) -> Json:
-        return {
-            "include": str(self.include),
-            "generated_include": str(self.generated_include),
-            "public_header": self.public_header.json(),
-            "private_header": self.private_header.json(),
-            "header": map_optional(self.header, str),
-            "generated_header": map_optional(self.generated_header, str),
-            "source": str(self.source),
-            "generated_source": str(self.generated_source),
-            "test_source": map_optional(self.test_source, str),
-            "benchmark_source": map_optional(self.benchmark_source, str),
-            "toml_path": map_optional(self.toml_path, str),
-        }
-
-
-def get_path_info(p: Path) -> PathInfo:
-    public_header_info = get_nongenerated_public_header_info(p)
-    private_header_info = get_private_header_info(p)
-    return PathInfo(
-        include=get_nongenerated_include_path(p),
-        generated_include=get_generated_include_path(p),
-        public_header=public_header_info,
-        private_header=private_header_info,
-        generated_header=try_get_generated_header_path(p),
-        header=try_get_nongenerated_header_path(p),
-        source=get_nongenerated_source_path(p),
-        generated_source=get_generated_source_path(p),
-        test_source=get_test_source_path(p),
-        benchmark_source=get_benchmark_source_path(p),
-        toml_path=get_toml_path(p),
-    )
-
-
-def get_subrelpath(p: Path, config: Optional[ProjectConfig] = None) -> Path:
-    p = Path(p).absolute()
-    if config is None:
-        config = load_config(p)
-
-    sublib_root = get_sublib_root(p)
-    assert sublib_root is not None
-
-    include_dir = sublib_root / "include"
-    assert include_dir.is_dir()
-
-    src_dir = sublib_root / "src"
-    assert src_dir.is_dir()
-
-    test_src_dir = sublib_root / "test/src"
-    if test_src_dir.exists():
-        assert test_src_dir.is_dir()
-
-    base_dir: Path
-    if p.is_relative_to(src_dir):
-        base_dir = src_dir
-    elif p.is_relative_to(include_dir):
-        base_dir = include_dir
-    elif p.is_relative_to(test_src_dir):
-        base_dir = test_src_dir
-    else:
-        raise ValueError(f"Path {p} not relative to either src or include")
-
-    return with_project_specific_extension_removed(
-        p.relative_to(base_dir), config=config
-    )
-
-
-def get_possible_spec_paths(p: Path) -> Iterator[Path]:
-    p = Path(p).absolute()
-    config = get_config(p)
-    assert p.name.endswith(".dtg.cc") or p.name.endswith(
-        ".dtg" + config.header_extension
-    )
-    subrelpath = get_subrelpath(p)
-    include_dir = get_include_dir(p)
-    assert include_dir is not None
-    src_dir = get_src_dir(p)
-    assert src_dir is not None
-    for d in [include_dir, src_dir]:
-        for ext in [".struct.toml", ".enum.toml", ".variant.toml"]:
-            yield d / with_suffix_appended(with_suffix_removed(subrelpath), ext)
-
-
-@dataclass(frozen=True, order=True)
-class LibInfo:
-    include_dir: Path
-    src_dir: Path
-    test_dir: Optional[Path]
-    benchmark_dir: Optional[Path]
-
-
-def get_lib_info(p: Path) -> LibInfo:
-    p = Path(p).absolute()
-    sublib_root = get_sublib_root(p)
-    assert sublib_root is not None
-    config_root = get_config_root(p)
-
-    include_dir = sublib_root / "include"
-    assert include_dir.is_dir()
-
-    src_dir = sublib_root / "src"
-    assert src_dir.is_dir()
-
-    test_dir = sublib_root / "test"
-    rel_test_dir: Optional[Path]
-    if test_dir.is_dir():
-        rel_test_dir = test_dir.relative_to(config_root)
-    else:
-        rel_test_dir = None
-
-    benchmark_dir = sublib_root / "benchmark"
-    rel_benchmark_dir: Optional[Path]
-    if benchmark_dir.is_dir():
-        rel_benchmark_dir = benchmark_dir.relative_to(config_root)
-    else:
-        rel_benchmark_dir = None
-
-    return LibInfo(
-        include_dir=include_dir.relative_to(config_root),
-        src_dir=src_dir.relative_to(config_root),
-        test_dir=rel_test_dir,
-        benchmark_dir=rel_benchmark_dir,
-    )
-
-def get_generated_public_header_path(p: Path) -> Path:
-    config = get_config(p)
-
-    lib_info = get_lib_info(p)
-
-    subrelpath = get_subrelpath(p)
-    subrelpath_with_extension = with_suffix_appended(
-        subrelpath, '.dtg' + config.header_extension
-    )
-
-    return lib_info.include_dir / subrelpath_with_extension
-
-
-def get_nongenerated_public_header_path(p: Path) -> Path:
-    config = get_config(p)
-
-    lib_info = get_lib_info(p)
-
-    subrelpath = get_subrelpath(p)
-    subrelpath_with_extension = with_suffix_appended(
-        subrelpath, config.header_extension
-    )
-
-    return lib_info.include_dir / subrelpath_with_extension
-
-
-def get_nongenerated_public_header_info(p: Path) -> HeaderInfo:
-    path = get_nongenerated_public_header_path(p)
-    return HeaderInfo(
-        path=path,
-        ifndef=gen_ifndef_uid(path),
-    )
-
-def get_private_header_path(p: Path) -> Path:
-    config = get_config(p)
-
-    lib_info = get_lib_info(p)
-
-    subrelpath = get_subrelpath(p)
-    subrelpath_with_extension = with_suffix_appended(
-        subrelpath, config.header_extension
-    )
-
-    return lib_info.src_dir / subrelpath_with_extension
-
-
-def get_private_header_info(p: Path) -> HeaderInfo:
-    path = get_private_header_path(p)
-    return HeaderInfo(
-        path=path,
-        ifndef=gen_ifndef_uid(path),
-    )
-
-
-def try_get_nongenerated_header_path(p: Path) -> Optional[Path]:
-    try:
-        return get_nongenerated_header_path(p)
-    except RuntimeError:
-        return None
-
-
-def get_nongenerated_header_path(p: Path) -> Path:
-    config = get_config(p)
-
-    lib_info = get_lib_info(p)
-
-    subrelpath = get_subrelpath(p)
-    subrelpath_with_extension = with_suffix_appended(
-        subrelpath, config.header_extension
-    )
-
-    public_include = lib_info.include_dir / subrelpath_with_extension
-    private_include = lib_info.src_dir / subrelpath_with_extension
-    if public_include.exists():
-        return public_include
-    elif private_include.exists():
-        return private_include
-    else:
-        raise RuntimeError([public_include, private_include])
-
-
-def try_get_generated_header_path(p: Path) -> Optional[Path]:
-    try:
-        return get_generated_header_path(p)
-    except RuntimeError:
-        return None
-
-def get_generated_header_path(p: Path) -> Path:
-    config = get_config(p)
-
-    lib_info = get_lib_info(p)
-
-    subrelpath = get_subrelpath(p)
-    subrelpath_with_extension = with_suffix_appended(
-        subrelpath, '.dtg' + config.header_extension
-    )
-
-    public_include = lib_info.include_dir / subrelpath_with_extension
-    private_include = lib_info.src_dir / subrelpath_with_extension
-    if public_include.exists():
-        return public_include
-    elif private_include.exists():
-        return private_include
-    else:
-        raise RuntimeError([public_include, private_include])
-
-def get_toml_path(p: Path) -> Optional[Path]:
-    public_header_path = get_nongenerated_public_header_path(p)
-
-    struct_toml_path = with_suffixes(public_header_path, '.struct.toml')
-    variant_toml_path = with_suffixes(public_header_path, '.variant.toml')
-    enum_toml_path = with_suffixes(public_header_path, '.enum.toml')
-
-    struct_toml_exists = struct_toml_path.is_file()
-    variant_toml_exists = variant_toml_path.is_file()
-    enum_toml_exists = enum_toml_path.is_file()
-
-    assert num_true([struct_toml_exists, variant_toml_exists, enum_toml_exists]) <= 1
-
-    if struct_toml_exists:
-        return struct_toml_path
-    elif variant_toml_exists:
-        return variant_toml_path
-    elif enum_toml_exists:
-        return enum_toml_path
-    else:
-        return None
-
-def get_generated_include_path(p: Path) -> Path:
-    lib_info = get_lib_info(p)
-    header_path = get_generated_public_header_path(p)
-    return header_path.relative_to(lib_info.include_dir)
-
-def get_nongenerated_include_path(p: Path) -> Path:
-    lib_info = get_lib_info(p)
-    header_path = get_nongenerated_public_header_path(p)
-    return header_path.relative_to(lib_info.include_dir)
-
-def get_generated_source_path(p: Path) -> Path:
-    p = Path(p).absolute()
-    lib_info = get_lib_info(p)
-    return lib_info.src_dir / with_suffix_appended(get_subrelpath(p), ".dtg.cc")
-
-def get_nongenerated_source_path(p: Path) -> Path:
-    p = Path(p).absolute()
-    lib_info = get_lib_info(p)
-    return lib_info.src_dir / with_suffix_appended(get_subrelpath(p), ".cc")
-
-def get_test_source_path(p: Path) -> Optional[Path]:
-    p = Path(p).absolute()
-
-    lib_info = get_lib_info(p)
-
-    if lib_info.test_dir is None:
-        return None
-    else:
-        return (
-            lib_info.test_dir / "src" / with_suffix_appended(get_subrelpath(p), ".cc")
-        )
-
-
-def get_benchmark_source_path(p: Path) -> Optional[Path]:
-    p = Path(p).absolute()
-
-    lib_info = get_lib_info(p)
-
-    if lib_info.benchmark_dir is None:
-        return None
-    else:
-        return (
-            lib_info.benchmark_dir
-            / "src"
-            / with_suffix_appended(get_subrelpath(p), ".cc")
-        )
-
+# def try_get_config(p: Union[Path, str]) -> Optional[ProjectConfig]:
+#     try:
+#         return get_config(p)
+#     except FileNotFoundError:
+#         return None
+#
+
+# def get_possible_spec_paths(p: Path) -> Iterator[Path]:
+#     p = Path(p).absolute()
+#     config = get_config(p)
+#     assert p.name.endswith(".dtg.cc") or p.name.endswith(
+#         ".dtg" + config.header_extension
+#     )
+#     subrelpath = get_subrelpath(p)
+#     include_dir = get_include_dir(p)
+#     assert include_dir is not None
+#     src_dir = get_src_dir(p)
+#     assert src_dir is not None
+#     for d in [include_dir, src_dir]:
+#         for ext in [".struct.toml", ".enum.toml", ".variant.toml"]:
+#             yield d / with_suffix_appended(with_suffix_removed(subrelpath), ext)
+#
+
+
+
+# def get_nongenerated_public_header_info(p: Path) -> HeaderInfo:
+#     path = get_nongenerated_public_header_path(p)
+#     return HeaderInfo(
+#         path=path,
+#         ifndef=gen_ifndef_uid(path),
+#     )
+#
+# def get_private_header_path(p: Path) -> Path:
+#     config = get_config(p)
+#
+#     lib_info = get_lib_info(p)
+#
+#     subrelpath = get_subrelpath(p)
+#     subrelpath_with_extension = with_suffix_appended(
+#         subrelpath, config.header_extension
+#     )
+#
+#     return lib_info.src_dir / subrelpath_with_extension
+#
+
+# def get_private_header_info(p: Path) -> HeaderInfo:
+#     path = get_private_header_path(p)
+#     return HeaderInfo(
+#         path=path,
+#         ifndef=gen_ifndef_uid(path),
+#     )
+#
+
+# def try_get_nongenerated_header_path(p: Path) -> Optional[Path]:
+#     try:
+#         return get_nongenerated_header_path(p)
+#     except RuntimeError:
+#         return None
+#
+
+# def get_nongenerated_header_path(p: Path) -> Path:
+#     config = get_config(p)
+#
+#     lib_info = get_lib_info(p)
+#
+#     subrelpath = get_subrelpath(p)
+#     subrelpath_with_extension = with_suffix_appended(
+#         subrelpath, config.header_extension
+#     )
+#
+#     public_include = lib_info.include_dir / subrelpath_with_extension
+#     private_include = lib_info.src_dir / subrelpath_with_extension
+#     if public_include.exists():
+#         return public_include
+#     elif private_include.exists():
+#         return private_include
+#     else:
+#         raise RuntimeError([public_include, private_include])
+#
+
+# def try_get_generated_header_path(p: Path) -> Optional[Path]:
+#     try:
+#         return get_generated_header_path(p)
+#     except RuntimeError:
+#         return None
+#
+# def get_generated_header_path(p: Path) -> Path:
+#     config = get_config(p)
+#
+#     lib_info = get_lib_info(p)
+#
+#     subrelpath = get_subrelpath(p)
+#     subrelpath_with_extension = with_suffix_appended(
+#         subrelpath, '.dtg' + config.header_extension
+#     )
+#
+#     public_include = lib_info.include_dir / subrelpath_with_extension
+#     private_include = lib_info.src_dir / subrelpath_with_extension
+#     if public_include.exists():
+#         return public_include
+#     elif private_include.exists():
+#         return private_include
+#     else:
+#         raise RuntimeError([public_include, private_include])
+
+# def get_toml_path(p: Path) -> Optional[Path]:
+#     public_header_path = get_nongenerated_public_header_path(p)
+#
+#     struct_toml_path = with_suffixes(public_header_path, '.struct.toml')
+#     variant_toml_path = with_suffixes(public_header_path, '.variant.toml')
+#     enum_toml_path = with_suffixes(public_header_path, '.enum.toml')
+#
+#     struct_toml_exists = struct_toml_path.is_file()
+#     variant_toml_exists = variant_toml_path.is_file()
+#     enum_toml_exists = enum_toml_path.is_file()
+#
+#     assert num_true([struct_toml_exists, variant_toml_exists, enum_toml_exists]) <= 1
+#
+#     if struct_toml_exists:
+#         return struct_toml_path
+#     elif variant_toml_exists:
+#         return variant_toml_path
+#     elif enum_toml_exists:
+#         return enum_toml_path
+#     else:
+#         return None
+
+# def get_generated_include_path(p: Path) -> Path:
+#     lib_info = get_lib_info(p)
+#     header_path = get_generated_public_header_path(p)
+#     return header_path.relative_to(lib_info.include_dir)
+#
+# def get_nongenerated_include_path(p: Path) -> Path:
+#     lib_info = get_lib_info(p)
+#     header_path = get_nongenerated_public_header_path(p)
+#     return header_path.relative_to(lib_info.include_dir)
+#
+# def get_generated_source_path(p: Path) -> Path:
+#     p = Path(p).absolute()
+#     lib_info = get_lib_info(p)
+#     return lib_info.src_dir / with_suffix_appended(get_subrelpath(p), ".dtg.cc")
+#
+# def get_nongenerated_source_path(p: Path) -> Path:
+#     p = Path(p).absolute()
+#     lib_info = get_lib_info(p)
+#     return lib_info.src_dir / with_suffix_appended(get_subrelpath(p), ".cc")
+#
+# def get_test_source_path(p: Path) -> Optional[Path]:
+#     p = Path(p).absolute()
+#
+#     lib_info = get_lib_info(p)
+#
+#     if lib_info.test_dir is None:
+#         return None
+#     else:
+#         return (
+#             lib_info.test_dir / "src" / with_suffix_appended(get_subrelpath(p), ".cc")
+#         )
+#
+#
+# def get_benchmark_source_path(p: Path) -> Optional[Path]:
+#     p = Path(p).absolute()
+#
+#     lib_info = get_lib_info(p)
+#
+#     if lib_info.benchmark_dir is None:
+#         return None
+#     else:
+#         return (
+#             lib_info.benchmark_dir
+#             / "src"
+#             / with_suffix_appended(get_subrelpath(p), ".cc")
+#         )
+#
 
 def dump_config(cfg: ProjectConfig) -> Json:
     return {

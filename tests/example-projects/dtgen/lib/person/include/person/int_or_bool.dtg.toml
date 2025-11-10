@@ -1,0 +1,20 @@
+namespace = "FlexFlow"
+name = "IntOrBool"
+type = "variant"
+docstring = "An int or a bool"
+features = [
+  "eq",
+  "ord",
+  "hash",
+  "json",
+  "rapidcheck",
+  "fmt",
+]
+includes = []
+
+[[values]]
+type = "int"
+docstring = "Could be negative"
+
+[[values]]
+type = "bool"

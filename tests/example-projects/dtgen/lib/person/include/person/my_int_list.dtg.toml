@@ -1,0 +1,23 @@
+namespace = "FlexFlow"
+name = "MyIntList"
+type = "variant"
+features = [
+  "eq",
+  "ord",
+  "hash",
+  "json",
+  "fmt",
+]
+
+includes = [
+  "person/my_int_list_cons.dtg.hh",
+  "person/my_list_empty.dtg.hh",
+]
+
+[[values]]
+type = "::FlexFlow::MyIntListCons"
+key = "cons"
+
+[[values]]
+type = "::FlexFlow::MyListEmpty"
+key = "empty"

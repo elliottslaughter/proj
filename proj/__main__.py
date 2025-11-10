@@ -11,18 +11,17 @@ from typing import (
     Callable,
     Optional,
     Iterable,
+    Set,
 )
 from . import subprocess_trace as subprocess
 import os
 import multiprocessing
 import sys
 from .config_file import (
-    try_get_config,
-    get_config,
-    get_config_root,
+    load_repo_config,
     dump_config,
-    get_path_info,
     resolve_test_target,
+    ProjectConfig,
 )
 from .dtgen import run_dtgen
 from .format import run_formatter
@@ -94,6 +93,25 @@ import json
 from .target_resolution import (
     fully_resolve_run_target,
 )
+from .move import (
+    perform_file_group_move_with_include_and_ifndef_update,
+)
+from .trees import (
+    load_root_filesystem,
+    load_filesystem_for_repo,
+)
+from .parse_project import find_repo, parse_repo_path, parse_file_path
+from .utils import map_optional
+from .file_group_info import get_file_group_info
+from .paths import (
+    RepoRelPath, 
+    File,
+)
+from .unparse_project import get_repo_rel_path
+from .includes import (
+    parse_include_spec,
+    find_occurrences_of_include,
+)
 
 _l = logging.getLogger(name="proj")
 
@@ -102,7 +120,6 @@ DIR = Path(__file__).resolve().parent
 STATUS_OK = 0
 STATUS_ERR = 1
 
-
 @dataclass(frozen=True)
 class MainRootArgs:
     path: Path
@@ -110,8 +127,10 @@ class MainRootArgs:
 
 
 def main_root(args: MainRootArgs) -> int:
-    config_root = get_config_root(args.path)
-    print(config_root)
+    fs = load_root_filesystem()
+    repo = find_repo(args.path, fs)
+    assert repo is not None
+    print(repo.path)
     return STATUS_OK
 
 
@@ -122,7 +141,10 @@ class MainConfigArgs:
 
 
 def main_config(args: MainConfigArgs) -> int:
-    config = get_config(args.path)
+    fs = load_root_filesystem()
+    repo = find_repo(args.path, fs)
+    assert repo is not None
+    config = load_repo_config(repo, fs)
     json.dump(dump_config(config), sort_keys=True, indent=2, fp=sys.stdout)
     return STATUS_OK
 
@@ -135,8 +157,18 @@ class MainQueryPathArgs:
 
 
 def main_query_path(args: MainQueryPathArgs) -> int:
-    path_info = get_path_info(args.file)
-    json.dump(path_info.json(), sort_keys=True, indent=2, fp=sys.stdout)
+    fs = load_root_filesystem()
+    repo = find_repo(args.path, fs)
+    assert repo is not None
+    config = load_repo_config(repo, fs)
+    file_repo_rel = RepoRelPath(args.file.absolute().relative_to(repo.path), repo)
+    file = parse_file_path(file_repo_rel, config.extension_config)
+    assert file is not None
+
+    file_group_info = get_file_group_info(
+        file.group, config.ifndef_name, config.extension_config
+    )
+    json.dump(file_group_info.json(), sort_keys=True, indent=2, fp=sys.stdout)
     return STATUS_OK
 
 
@@ -156,15 +188,32 @@ class MainCmakeArgs:
     dtgen_skip: bool
     verbosity: int
 
+def get_repo_root(p: Path) -> Path:
+    fs = load_root_filesystem()
+    repo = find_repo(p, fs)
+    assert repo is not None
+    return Path(repo.path)
+
+def get_config(p: Path) -> ProjectConfig:
+    fs = load_root_filesystem()
+    repo = find_repo(p, fs)
+    assert repo is not None
+    config = load_repo_config(repo, fs)
+    return config
 
 def main_cmake(args: MainCmakeArgs) -> int:
     config = get_config(args.path)
 
+    repo = config.repo
+    repo_file_tree = load_filesystem_for_repo(repo)
+
     if not args.dtgen_skip:
         run_dtgen(
-            root=config.base,
-            config=config,
+            repo=repo,
+            repo_file_tree=repo_file_tree,
             force=False,
+            extension_config=config.extension_config,
+            ifndef_base=config.ifndef_name,
         )
 
     cmake_all(config=config, fast=args.fast, trace=args.trace)
@@ -184,6 +233,9 @@ class MainBuildArgs:
 def main_build(args: MainBuildArgs) -> int:
     config = get_config(args.path)
 
+    repo = config.repo
+    repo_file_tree = load_filesystem_for_repo(repo)
+
     if args.release:
         build_dir = config.release_build_dir
     else:
@@ -198,10 +250,20 @@ def main_build(args: MainBuildArgs) -> int:
     else:
         targets = list(args.targets)
 
+    if not args.dtgen_skip:
+        run_dtgen(
+            repo=repo,
+            repo_file_tree=repo_file_tree,
+            force=False,
+            extension_config=config.extension_config,
+            ifndef_base=config.ifndef_name,
+        )
+
     build_targets(
+        repo=repo,
+        repo_path_tree=repo_file_tree,
         config=config,
         targets=targets,
-        dtgen_skip=args.dtgen_skip,
         jobs=args.jobs,
         verbosity=args.verbosity,
         build_dir=build_dir,
@@ -224,6 +286,9 @@ class MainBenchmarkArgs:
 def main_benchmark(args: MainBenchmarkArgs) -> int:
     _l.debug("Running main_benchmark for args: %s", args)
     config = get_config(args.path)
+
+    repo = config.repo
+    repo_file_tree = load_filesystem_for_repo(repo)
 
     requested_benchmark_targets: List[Union[BenchmarkSuiteTarget, BenchmarkCaseTarget]]
     if len(args.targets) == 0:
@@ -253,10 +318,20 @@ def main_benchmark(args: MainBenchmarkArgs) -> int:
     if len(requested_benchmark_targets) == 0:
         fail_with_error("No benchmark targets available to run")
 
+    if not args.dtgen_skip:
+        run_dtgen(
+            repo=repo,
+            repo_file_tree=repo_file_tree,
+            force=False,
+            extension_config=config.extension_config,
+            ifndef_base=config.ifndef_name,
+        )
+
     build_targets(
+        repo=repo,
+        repo_path_tree=repo_file_tree,
         config=config,
         targets=[t.build_target for t in requested_benchmark_targets],
-        dtgen_skip=args.dtgen_skip,
         jobs=args.jobs,
         verbosity=args.verbosity,
         build_dir=config.release_build_dir,
@@ -378,6 +453,9 @@ def main_test(args: MainTestArgs) -> int:
 
     config = get_config(args.path)
 
+    repo = config.repo
+    repo_file_tree = load_filesystem_for_repo(repo)
+
     if args.coverage:
         build_dir = config.coverage_build_dir
     else:
@@ -489,10 +567,20 @@ def main_test(args: MainTestArgs) -> int:
 
     requested_build_targets = set(t.build_target for t in requested_test_targets)
 
+    if not args.dtgen_skip:
+        run_dtgen(
+            repo=repo,
+            repo_file_tree=repo_file_tree,
+            force=False,
+            extension_config=config.extension_config,
+            ifndef_base=config.ifndef_name,
+        )
+
     build_targets(
+        repo=repo,
+        repo_path_tree=repo_file_tree,
         config=config,
         targets=requested_build_targets,
-        dtgen_skip=args.dtgen_skip,
         jobs=args.jobs,
         verbosity=args.verbosity,
         build_dir=build_dir,
@@ -592,7 +680,6 @@ class MainCheckArgs:
     check: Check
     verbosity: int
 
-
 def main_check(args: MainCheckArgs) -> int:
     config = get_config(args.path)
 
@@ -600,6 +687,65 @@ def main_check(args: MainCheckArgs) -> int:
 
     return STATUS_OK
 
+@dataclass(frozen=True)
+class MainMoveArgs:
+    path: Path
+    src: Path
+    dst: Path
+    verbosity: int
+    dry_run: bool
+    skip_update_includes: bool
+    skip_update_ifndefs: bool
+
+
+def main_move(args: MainMoveArgs) -> int:
+    config = get_config(args.path)
+
+    root_path_tree = load_root_filesystem()
+    src_repo_rel = parse_repo_path(args.src.absolute(), root_path_tree)
+    assert src_repo_rel is not None
+    dst_repo_rel = parse_repo_path(args.dst.absolute(), root_path_tree)
+    assert dst_repo_rel is not None
+
+    repo_file_tree = load_filesystem_for_repo(config.repo)
+
+    assert args.src.is_file()
+    perform_file_group_move_with_include_and_ifndef_update( 
+        repo_file_tree=repo_file_tree,
+        src=src_repo_rel,
+        dst=dst_repo_rel,
+        extension_config=config.extension_config,
+        ifndef_base=config.ifndef_name,
+        update_includes=not args.skip_update_includes,
+        update_ifndefs=not args.skip_update_ifndefs,
+        dry_run=args.dry_run,
+    )
+
+    return STATUS_OK
+
+@dataclass(frozen=True)
+class MainFindIncludeArgs:
+    path: Path
+    include: str
+    verbosity: int
+
+def main_find_include(args: MainFindIncludeArgs) -> int:
+    config = get_config(args.path)
+
+    repo = config.repo
+    repo_file_tree = load_filesystem_for_repo(repo)
+
+    include_spec = parse_include_spec(args.include)
+    found: Set[File] = find_occurrences_of_include(repo_file_tree, include_spec, config.extension_config)
+
+    for file in found:
+        repo_rel_path = get_repo_rel_path(file, config.extension_config)
+        print(str(repo_rel_path.path))
+    
+    if len(found) == 0:
+        fail_with_error('No matches found.')
+
+    return STATUS_OK
 
 @dataclass(frozen=True)
 class MainLintArgs:
@@ -610,15 +756,27 @@ class MainLintArgs:
 
 
 def main_lint(args: MainLintArgs) -> int:
-    root = get_config_root(args.path)
-    config = get_config(args.path)
+    fs = load_root_filesystem()
+    repo = find_repo(args.path, fs)
+    assert repo is not None
+    config = load_repo_config(repo, fs)
+    assert repo is not None
+
     if len(args.files) == 0:
         files = None
     else:
         for file in args.files:
             assert file.is_file()
         files = list(args.files)
-    run_linter(root, config, files, profile_checks=args.profile_checks)
+
+    repo_tree = fs.restrict_to_subdir(repo.path)
+    run_linter(
+        repo=config.repo,
+        repo_path_tree=repo_tree,
+        extension_config=config.extension_config, 
+        files=files, 
+        profile_checks=args.profile_checks
+    )
     return STATUS_OK
 
 
@@ -642,6 +800,17 @@ def main_format(args: Any) -> int:
 
 
 @dataclass(frozen=True)
+class MainFixIfndefsArgs:
+    path: Path
+    files: Sequence[Path]
+    verbosity: int
+
+
+def main_fix_ifndefs(args: Any) -> int:
+    return STATUS_OK
+
+
+@dataclass(frozen=True)
 class MainDtgenArgs:
     path: Path
     files: Sequence[Path]
@@ -650,19 +819,28 @@ class MainDtgenArgs:
 
 
 def main_dtgen(args: MainDtgenArgs) -> int:
-    root = get_config_root(args.path)
-    config = get_config(args.path)
+    fs = load_root_filesystem()
+    repo = find_repo(args.path, fs)
+    assert repo is not None
+    config = load_repo_config(repo, fs)
     if len(args.files) == 0:
         files = None
     else:
         for file in args.files:
             assert file.is_file()
-        files = list(args.files)
+        files = [
+            parsed
+            for p in args.files
+            if (parsed := parse_file_path(RepoRelPath(p.absolute().relative_to(repo.path), repo), config.extension_config)) is not None
+        ]
+
     run_dtgen(
-        root=root,
-        config=config,
-        files=files,
+        repo=repo,
+        repo_file_tree=fs.restrict_to_subdir(repo.path),
         force=args.force,
+        extension_config=config.extension_config,
+        ifndef_base=config.ifndef_name,
+        files=files,
         delete_outdated=True,
     )
     return STATUS_OK
@@ -676,12 +854,11 @@ class MainDoxygenArgs:
 
 
 def main_doxygen(args: MainDoxygenArgs) -> int:
-    root = get_config_root(args.path)
     config = get_config(args.path)
 
     env = {
         **os.environ,
-        "FF_HOME": root,
+        "FF_HOME": config.base,
     }
     stderr: Union[int, TextIO] = sys.stderr
     stdout: Union[int, TextIO] = sys.stdout
@@ -700,7 +877,7 @@ def main_doxygen(args: MainDoxygenArgs) -> int:
         env=env,
         stdout=stdout,
         stderr=stderr,
-        cwd=root,
+        cwd=config.base,
     )
 
     if args.browser:
@@ -716,8 +893,11 @@ def make_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser()
     subparsers = p.add_subparsers()
 
-    config = try_get_config(Path.cwd())
-
+    root_fs = load_root_filesystem()
+    repo = find_repo(Path.cwd(), root_fs)
+    
+    config = map_optional(repo, lambda r: load_repo_config(r, root_fs))
+    
     def set_main_signature(
         parser: argparse.ArgumentParser, func: Callable[[T], int], args_type: Type[T]
     ) -> None:
@@ -836,10 +1016,29 @@ def make_parser() -> argparse.ArgumentParser:
     format_p.add_argument("files", nargs="*", type=Path)
     add_verbosity_args(format_p)
 
+    fix_ifndefs_p = subparsers.add_parser("fix-ifndefs")
+    set_main_signature(fix_ifndefs_p, main_fix_ifndefs, MainFixIfndefsArgs)
+    fix_ifndefs_p.add_argument("files", nargs="*", type=Path)
+    add_verbosity_args(fix_ifndefs_p)
+
     check_p = subparsers.add_parser("check")
     set_main_signature(check_p, main_check, MainCheckArgs)
     check_p.add_argument("check", choices=list(sorted(Check)))
     add_verbosity_args(check_p)
+
+    move_p = subparsers.add_parser("mv")
+    set_main_signature(move_p, main_move, MainMoveArgs)
+    move_p.add_argument("src", type=Path)
+    move_p.add_argument("dst", type=Path)
+    move_p.add_argument("--dry-run", "-n", action="store_true")
+    move_p.add_argument("--skip-update-includes", action="store_true")
+    move_p.add_argument("--skip-update-ifndefs", action="store_true")
+    add_verbosity_args(move_p)
+
+    find_include_p = subparsers.add_parser("find-include")
+    set_main_signature(find_include_p, main_find_include, MainFindIncludeArgs)
+    find_include_p.add_argument("include", type=str)
+    add_verbosity_args(find_include_p)
 
     lint_p = subparsers.add_parser("lint")
     set_main_signature(lint_p, main_lint, MainLintArgs)

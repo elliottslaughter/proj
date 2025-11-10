@@ -18,29 +18,30 @@ from typing import (
     Sequence,
     TextIO,
 )
+from pathlib import PurePath
 
 
 def header_includes_for_feature(feature: Feature) -> Sequence[IncludeSpec]:
     if feature == Feature.HASH:
-        return [IncludeSpec(path="functional", system=True)]
+        return [IncludeSpec(path=PurePath("functional"), system=True)]
     elif feature == Feature.JSON:
-        return [IncludeSpec(path="nlohmann/json.hpp", system=True)]
+        return [IncludeSpec(path=PurePath("nlohmann/json.hpp"), system=True)]
     elif feature == Feature.RAPIDCHECK:
-        return [IncludeSpec(path="rapidcheck.h", system=True)]
+        return [IncludeSpec(path=PurePath("rapidcheck.h"), system=True)]
     else:
         assert feature == Feature.FMT
         return [
-            IncludeSpec(path="string", system=True),
-            IncludeSpec(path="ostream", system=True),
-            IncludeSpec(path="fmt/format.h", system=True),
+            IncludeSpec(path=PurePath("string"), system=True),
+            IncludeSpec(path=PurePath("ostream"), system=True),
+            IncludeSpec(path=PurePath("fmt/format.h"), system=True),
         ]
 
 
 def source_includes_for_feature(feature: Feature) -> Sequence[IncludeSpec]:
     if feature in [Feature.FMT, Feature.JSON]:
         return [
-            IncludeSpec(path="stdexcept", system=True),
-            IncludeSpec(path="sstream", system=True),
+            IncludeSpec(path=PurePath("stdexcept"), system=True),
+            IncludeSpec(path=PurePath("sstream"), system=True),
         ]
     else:
         return []

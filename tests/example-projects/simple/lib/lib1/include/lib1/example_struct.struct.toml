@@ -1,7 +1,0 @@
-namespace = "FlexFlow"
-name = "ExampleStruct"
-features = []
-
-[[fields]]
-name = "my_field"
-type = "int"

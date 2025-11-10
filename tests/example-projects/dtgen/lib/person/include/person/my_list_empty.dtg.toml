@@ -1,0 +1,12 @@
+namespace = "FlexFlow"
+name = "MyListEmpty"
+type = "struct"
+features = [
+  "eq",
+  "ord",
+  "hash",
+  "json",
+  "fmt",
+]
+
+fields = []

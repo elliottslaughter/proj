@@ -81,6 +81,7 @@
             (with pkgs.python3Packages; [
               pip
               ipython
+              ipdb
               mypy
               python-lsp-server
               pylsp-mypy
