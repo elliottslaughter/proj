@@ -1,4 +1,5 @@
 from .emulated_file_tree import EmulatedFileTree
+from .emulated_file_tree_with_mtime import EmulatedFileTreeWithMtime
 from .filesystem_file_tree import FilesystemFileTree
 from .traced_file_tree import MutableTracedFileTreeByWrapping
 from .masked_file_tree import MaskedFileTree

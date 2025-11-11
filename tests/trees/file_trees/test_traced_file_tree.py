@@ -14,11 +14,9 @@ def test_mutable_traced_file_tree_by_wrapping() -> None:
 
     traced_file_tree = MutableTracedFileTreeByWrapping(
         EmulatedFileTree.from_lists(
-            curr_time=10,
             files=[
                 (
                     example_path, 
-                    1,
                     '\n'.join([
                         'hello world',
                         '',

@@ -18,6 +18,7 @@ from .file_tree import (
 from .file_trees import (
     FilesystemFileTree, 
     EmulatedFileTree,
+    EmulatedFileTreeWithMtime,
     MutableTracedFileTreeByWrapping,
     MaskedFileTree,
 )

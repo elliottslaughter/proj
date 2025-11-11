@@ -2,7 +2,7 @@ from proj.dtgen.project import (
     run_dtgen, 
     generate_source_contents,
 )
-from proj.trees import EmulatedFileTree, EmulatedPathTree
+from proj.trees import EmulatedFileTreeWithMtime, EmulatedPathTree
 from proj.paths import (
     Repo,
     Component,
@@ -41,7 +41,7 @@ type = "int"
 def test_run_dtgen_for_lib() -> None:
     repo = Repo(PurePath('repo'))
 
-    file_tree = EmulatedFileTree.from_lists(
+    file_tree = EmulatedFileTreeWithMtime.from_lists(
         curr_time=10,
         files=[
             (
@@ -84,7 +84,7 @@ def test_run_dtgen_for_lib() -> None:
 def test_run_dtgen_for_bin() -> None:
     repo = Repo(PurePath('repo'))
 
-    file_tree = EmulatedFileTree.from_lists(
+    file_tree = EmulatedFileTreeWithMtime.from_lists(
         curr_time=10,
         files=[
             (

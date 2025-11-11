@@ -385,26 +385,21 @@ def test_find_occurrences_of_include() -> None:
 
 
     repo_file_tree = EmulatedFileTree.from_lists(
-        curr_time=10,
         files=[
             (
                 matching_toml_path,
-                1,
                 matching_toml_contents,
             ),
             (
                 matching_header_path,
-                1,
                 matching_header_contents,
             ),
             (
                 non_matching_toml_path,
-                1,
                 non_matching_toml_contents,
             ),
             (
                 non_matching_header_path,
-                1,
                 non_matching_header_contents,
             ),
         ],

@@ -113,13 +113,12 @@ def _perform_file_group_move(
 
 def file_tree_to_emulated(tree: FileTree) -> EmulatedFileTree:
     return EmulatedFileTree.from_lists(
-        curr_time=0.0,
         files=[
-            (f, 0.0, tree.get_file_contents(f))
+            (f, tree.get_file_contents(f))
             for f in tree.files()
         ],
         dirs=[
-            (d, 0.0) for d in tree.dirs()    
+            d for d in tree.dirs()    
         ],
     )
 
@@ -234,7 +233,7 @@ def perform_file_group_move_with_include_and_ifndef_update(
                 file_path = get_repo_rel_path(file, extension_config).path
                 if file.role == RoleInGroup.DTGEN_TOML:
                     file_contents = repo_file_tree.get_file_contents(file_path)
-                    updated_contents = replace_file_group_include_in_cpp_file_contents(
+                    updated_contents = replace_file_group_include_in_dtg_toml_file_contents(
                         contents=file_contents,
                         curr=src_file.group,
                         goal=dst_file.group,
@@ -248,7 +247,7 @@ def perform_file_group_move_with_include_and_ifndef_update(
                         )
                 else:
                     file_contents = repo_file_tree.get_file_contents(file_path)
-                    updated_contents = replace_file_group_include_in_dtg_toml_file_contents(
+                    updated_contents = replace_file_group_include_in_cpp_file_contents(
                         contents=file_contents,
                         curr=src_file.group,
                         goal=dst_file.group,
