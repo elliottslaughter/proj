@@ -54,6 +54,11 @@ def test_render_file_diff() -> None:
         ModifyFileTrace(
             PurePath('a/f.txt'),
             '\n'.join([
+                'a',
+                'b',
+                'c',
+            ]),
+            '\n'.join([
                 'd',
                 'e',
                 'f',
@@ -75,9 +80,14 @@ def test_render_file_diff() -> None:
         m a/{c.txt -> d/e.txt}
         d a/a.txt
         m a/f.txt
-          d
-          e
-          f
+          @@ -1,3 +1,3 @@
+          
+          -a
+          -b
+          -c
+          +d
+          +e
+          +f
         '''
     ).strip() + '\n'
 

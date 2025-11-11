@@ -110,7 +110,6 @@ def test_perform_file_group_move() -> None:
         src,
         dst,
         EXTENSION_CONFIG,
-        dry_run=False,
     )
 
     correct = EmulatedPathTree.from_lists(
@@ -165,7 +164,6 @@ def test_perform_file_group_move_to_directory() -> None:
         src,
         dst,
         EXTENSION_CONFIG,
-        dry_run=False,
     )
     correct = EmulatedPathTree.from_lists(
         files=[
@@ -219,7 +217,6 @@ def test_perform_file_group_move_to_existing_directory() -> None:
         src,
         dst,
         EXTENSION_CONFIG,
-        dry_run=False,
     )
     correct = EmulatedPathTree.from_lists(
         files=[
@@ -276,7 +273,6 @@ def test_perform_file_group_move_to_current_location() -> None:
         src,
         dst,
         EXTENSION_CONFIG,
-        dry_run=False,
     )
 
     assert repo_path_tree == correct
@@ -382,5 +378,88 @@ def test_perform_file_group_move_with_include_and_ifndef_update() -> None:
         ],
         dirs=[]
     )
+
+    assert file_tree == correct
+
+def test_perform_file_group_move_with_include_and_ifndef_update_is_atomic() -> None:
+    file_tree = EmulatedFileTree.from_lists(
+        files=[
+            (
+                'lib/example/include/example/coordinate.dtg.toml',
+                '\n'.join([
+                    'namespace = "FlexFlow"',
+                    'name = "MyCoordinate"',
+                    'type = "struct"',
+                    'features = []',
+                    'includes = [',
+                    '  "example/integer.dtg.h",',
+                    ']',
+                    '',
+                    '[[fields]]',
+                    'name = x_coord',
+                    'type = ::FlexFlow::MyInteger',
+                    '',
+                    '[[fields]]',
+                    'name = y_coord',
+                    'type = ::FlexFlow::MyInteger',
+                ]),
+            ),
+            (
+                'lib/example/include/example/integer.dtg.toml',
+                '\n'.join([
+                    'namespace = "FlexFlow"',
+                    'name = "MyInteger"',
+                    'type = "struct"',
+                    'features = []',
+                    'includes = []',
+                    '',
+                    '[[fields]]',
+                    'name = raw',
+                    'type = int',
+                ]),
+            ),
+            (
+                'lib/example/include/example/something_invalid.struct.toml',
+                '\n'.join([
+                    'namespace = "FlexFlow"',
+                    'name = "SomethingInvalid"',
+                    'type = "struct"',
+                    'features = []',
+                    'includes = []',
+                    '',
+                    '[[fields]]',
+                    'name = raw',
+                    'type = int',
+                ]),
+            )
+        ],
+        dirs=[]
+    )
+
+    src = RepoRelPath(PurePath('lib/example/include/example/integer.dtg.toml'))
+    dst = RepoRelPath(PurePath('lib/example/include/example/my_integer.dtg.toml'))
+
+    extension_config = ExtensionConfig(
+        header_extension='.h',
+        src_extension='.cc',
+    )
+    
+    ifndef_base = '_BASE_'
+
+    correct = copy.deepcopy(file_tree)
+
+    try:
+        perform_file_group_move_with_include_and_ifndef_update(
+            repo_file_tree=file_tree,
+            src=src,
+            dst=dst,
+            extension_config=extension_config,
+            ifndef_base=ifndef_base,
+            update_includes=True,
+            update_ifndefs=True,
+            dry_run=False,
+        )
+    except Exception:
+        pass
 
     assert file_tree == correct

@@ -92,7 +92,7 @@ def parse_file_path(
     group: FileGroup
     if p.is_relative_to(public_include_dir) and p.suffix == '.toml':
         pp = PurePath(p.stem)
-        assert pp.suffix == '.dtg'
+        assert pp.suffix == '.dtg', pp
         file_type = RoleInGroup.DTGEN_TOML
         group = FileGroup(
             p.parent.relative_to(public_include_dir) / pp.stem,

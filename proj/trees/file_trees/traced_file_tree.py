@@ -13,7 +13,6 @@ from typing import (
     Iterator,
 )
 from pathlib import PurePath
-import difflib
 
 class MutableTracedFileTreeByWrapping(TracedMutableFileTree):
     _wrapped: MutableFileTree
@@ -69,6 +68,20 @@ class MutableTracedFileTreeByWrapping(TracedMutableFileTree):
     def dirs(self) -> Iterator[PurePath]:
         return self._wrapped.dirs()
 
+    def _mkdir_in_trace(self, p: PurePath) -> None:
+        for parent in p.parents[::-1]:
+            if not self._wrapped.has_dir(parent):
+                self._trace.append(
+                    MkDirTrace(
+                        path=parent,
+                    )
+                )
+        if not self._wrapped.has_dir(p):
+            self._trace.append(
+                MkDirTrace(
+                    path=p,
+                )
+            )
 
     def mkdir(
         self, 
@@ -76,11 +89,7 @@ class MutableTracedFileTreeByWrapping(TracedMutableFileTree):
         exist_ok: bool = False, 
         parents: bool = False,
     ) -> None:
-        self._trace.append(
-            MkDirTrace(
-                path=p,
-            )
-        )
+        self._mkdir_in_trace(p)
         self._wrapped.mkdir(
             p=p,
             exist_ok=exist_ok,
@@ -123,33 +132,28 @@ class MutableTracedFileTreeByWrapping(TracedMutableFileTree):
         exist_ok: bool = False, 
         parents: bool = False,
     ) -> None:
+        self._mkdir_in_trace(p.parent)
         if self._wrapped.has_file(p):
             curr_contents = self._wrapped.get_file_contents(p)
-            diff = '\n'.join(
-                list(difflib.unified_diff(
-                    curr_contents.splitlines(),
-                    contents.splitlines(),
-                    lineterm='\n',
-                ))[2:]
-            )
 
-            self._trace.append(
-                ModifyFileTrace(
-                    path=p,
-                    diff=diff,
+            if curr_contents != contents:
+                self._trace.append(
+                    ModifyFileTrace(
+                        path=p,
+                        old_contents=curr_contents,
+                        new_contents=contents,
+                    )
                 )
-            )
         else:
-            assert exist_ok
             self._trace.append(
                 CreateFileTrace(
                     path=p,
                     contents=contents,
                 )
             )
-            self._wrapped.set_file_contents(
-                p=p,
-                contents=contents,
-                exist_ok=exist_ok,
-                parents=parents,
-            )
+        self._wrapped.set_file_contents(
+            p=p,
+            contents=contents,
+            exist_ok=exist_ok,
+            parents=parents,
+        )

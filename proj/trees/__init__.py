@@ -14,6 +14,7 @@ from .file_tree import (
     TracedMutableFileTree,
     ModifyFileTrace,
     CreateFileTrace,
+    replay_trace_on_file_tree,
 )
 from .file_trees import (
     FilesystemFileTree, 
