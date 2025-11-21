@@ -42,7 +42,7 @@ class MutableTracedPathTreeByWrapping(TracedMutablePathTree):
         )
 
     def has_file(self, p: PurePath) -> bool:
-        return self.has_file(p=p)
+        return self._wrapped.has_file(p=p)
 
     def with_extension(self, extension: str) -> Iterator[PurePath]:
         return self._wrapped.with_extension(extension=extension)

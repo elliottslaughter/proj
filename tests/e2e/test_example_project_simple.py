@@ -752,6 +752,94 @@ def test_query_path_for_test_toml_enum() -> None:
 
 @pytest.mark.e2e
 @pytest.mark.slow
+def test_rm() -> None:
+    with project_instance() as d:
+        target_path = Path('./lib/lib1/include/lib1/example_enum.h')
+        target_cc_path = Path('./lib/lib1/src/lib1/example_enum.cc')
+        target_test_path = Path('./lib/lib1/test/src/lib1/example_enum.cc')
+        target_toml_path = Path('./lib/lib1/include/lib1/example_enum.dtg.toml')
+        non_target_path = Path('./lib/lib1/include/lib1/example_variant.dtg.toml')
+
+        all_test_paths = [
+            target_path,
+            target_cc_path,
+            target_test_path,
+            target_toml_path,
+            non_target_path,
+        ]
+
+        for target_p in all_test_paths:
+            assert (d / target_p).is_file()
+
+        pre_contents = {
+            p: (d / p).read_bytes() for p in all_test_paths
+        }
+
+        def check_removed(src: Path) -> None:
+            assert not (d / src).is_file()
+
+        def check_not_removed(p: Path) -> None:
+            assert (d / p).is_file()
+            assert (d / p).read_bytes() == pre_contents[p]
+
+        require_successful(run(d, [
+            'rm',
+            str(target_path),
+        ]))
+
+        check_removed(target_path)
+        check_removed(target_cc_path)
+        check_removed(target_test_path)
+        check_removed(target_toml_path)
+        check_not_removed(non_target_path)
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_rm_dry_run() -> None:
+    with project_instance() as d:
+        target_path = Path('./lib/lib1/include/lib1/example_enum.h')
+        target_cc_path = Path('./lib/lib1/src/lib1/example_enum.cc')
+        target_test_path = Path('./lib/lib1/test/src/lib1/example_enum.cc')
+        target_toml_path = Path('./lib/lib1/include/lib1/example_enum.dtg.toml')
+        non_target_path = Path('./lib/lib1/include/lib1/example_variant.dtg.toml')
+
+        all_test_paths = [
+            target_path,
+            target_cc_path,
+            target_test_path,
+            target_toml_path,
+            non_target_path,
+        ]
+
+        for target_p in all_test_paths:
+            assert (d / target_p).is_file()
+
+        pre_contents = {
+            p: (d / p).read_bytes() for p in all_test_paths
+        }
+
+        def check_removed(p: Path) -> None:
+            assert not (d / p).is_file()
+
+        def check_not_removed(p: Path) -> None:
+            assert (d / p).is_file()
+            assert (d / p).read_bytes() == pre_contents[p]
+
+        require_successful(run(d, [
+            'rm',
+            '-n',
+            str(target_path),
+        ]))
+
+        check_not_removed(target_path)
+        check_not_removed(target_cc_path)
+        check_not_removed(target_test_path)
+        check_not_removed(target_toml_path)
+        check_not_removed(non_target_path)
+
+
+@pytest.mark.e2e
+@pytest.mark.slow
 def test_move() -> None:
     with project_instance() as d:
         src_path = Path('./lib/lib1/include/lib1/example_enum.h')

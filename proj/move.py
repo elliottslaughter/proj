@@ -47,6 +47,7 @@ from .diff import (
 from .ifndef import (
     fix_ifndefs_in_file,
 )
+from .dry_run import load_repo_tree_for_dry_run
 
 @dataclass(frozen=True)
 class ConcreteMove:
@@ -107,23 +108,6 @@ def _perform_file_group_move(
             dst=move.dst.path,
         )
 
-def file_tree_to_emulated(tree: FileTree) -> EmulatedFileTree:
-    return EmulatedFileTree.from_lists(
-        files=[
-            (f, tree.get_file_contents(f))
-            for f in tree.files()
-        ],
-        dirs=[
-            d for d in tree.dirs()    
-        ],
-    )
-
-def path_tree_to_emulated(tree: PathTree) -> EmulatedPathTree:
-    return EmulatedPathTree.from_lists(
-        files=[f for f in tree.files()],
-        dirs=[d for d in tree.dirs()],
-    )
-
 
 def perform_file_group_move(
     repo_path_tree: MutablePathTree, 
@@ -145,28 +129,6 @@ def perform_file_group_move(
         dst_file=dst_file,
         extension_config=extension_config,
     )
-
-def load_repo_tree_for_dry_run(repo_file_tree: MutableFileTree) -> 'MutableTracedFileTreeByWrapping':
-    mask = AllowMask.from_iter([
-        "lib/",
-        "bin/",
-    ])
-
-    masked_path_tree = MaskedPathTree(
-        repo_file_tree,
-        mask,
-    )
-
-    masked_file_tree = MaskedFileTree(
-        masked_path_tree,
-        repo_file_tree,
-    )
-
-    return MutableTracedFileTreeByWrapping(
-        file_tree_to_emulated(masked_file_tree),
-    )
-
-
 
 def perform_file_group_move_with_include_and_ifndef_update(
     repo_file_tree: MutableFileTree,

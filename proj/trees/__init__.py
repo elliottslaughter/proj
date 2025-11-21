@@ -5,6 +5,7 @@ from .path_tree import (
     MoveTrace,
     MkDirTrace,
     RmFileTrace,
+    replay_trace_on_path_tree,
 )
 from .file_tree import (
     FileTree, 

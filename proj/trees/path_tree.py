@@ -3,6 +3,7 @@ from typing import (
     Self,
     Sequence,
     Union,
+    Iterable,
 )
 from pathlib import (
     PurePath,
@@ -73,6 +74,31 @@ class MkDirTrace:
 @dataclass(frozen=True)
 class RmFileTrace:
     path: PurePath
+
+
+def execute_trace_element_on_path_tree(
+    trace_element: Union[
+        MoveTrace,
+        MkDirTrace,
+        RmFileTrace,
+    ],
+    path_tree: MutablePathTree, 
+) -> None:
+    match trace_element:
+        case MoveTrace(src, dst): 
+            path_tree.rename(src=src, dst=dst)
+        case MkDirTrace(path):
+            path_tree.mkdir(path, exist_ok=False, parents=False)
+        case RmFileTrace(path):
+            path_tree.rm_file(path)
+
+def replay_trace_on_path_tree(
+    path_trace: Iterable[Union[MoveTrace, MkDirTrace, RmFileTrace]],
+    path_tree: MutablePathTree, 
+) -> None:
+    for trace_elem in path_trace:
+        execute_trace_element_on_path_tree(trace_elem, path_tree)
+
 
 class TracedMutablePathTree(MutablePathTree):
     @abc.abstractmethod

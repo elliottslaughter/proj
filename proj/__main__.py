@@ -96,6 +96,9 @@ from .target_resolution import (
 from .move import (
     perform_file_group_move_with_include_and_ifndef_update,
 )
+from .rm import (
+    rm_file_group,
+)
 from .trees import (
     load_root_filesystem,
     load_filesystem_for_repo,
@@ -724,6 +727,33 @@ def main_move(args: MainMoveArgs) -> int:
     return STATUS_OK
 
 @dataclass(frozen=True)
+class MainRmArgs:
+    path: Path
+    target: Path
+    dry_run: bool
+    verbosity: int
+
+def main_rm(args: MainRmArgs) -> int:
+    config = get_config(args.path)
+
+    root_path_tree = load_root_filesystem()
+
+    target_repo_rel = parse_repo_path(args.target.absolute(), root_path_tree)
+    assert target_repo_rel is not None
+
+    repo_file_tree = load_filesystem_for_repo(config.repo)
+
+    assert args.target.is_file()
+    rm_file_group( 
+        repo_path_tree=repo_file_tree,
+        target=target_repo_rel,
+        extension_config=config.extension_config,
+        dry_run=args.dry_run,
+    )
+
+    return STATUS_OK
+
+@dataclass(frozen=True)
 class MainFindIncludeArgs:
     path: Path
     include: str
@@ -1034,6 +1064,12 @@ def make_parser() -> argparse.ArgumentParser:
     move_p.add_argument("--skip-update-includes", action="store_true")
     move_p.add_argument("--skip-update-ifndefs", action="store_true")
     add_verbosity_args(move_p)
+
+    rm_p = subparsers.add_parser("rm")
+    set_main_signature(rm_p, main_rm, MainRmArgs)
+    rm_p.add_argument("target", type=Path)
+    rm_p.add_argument("--dry-run", "-n", action="store_true")
+    add_verbosity_args(rm_p)
 
     find_include_p = subparsers.add_parser("find-include")
     set_main_signature(find_include_p, main_find_include, MainFindIncludeArgs)
