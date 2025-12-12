@@ -16,6 +16,7 @@
       };
 
       lib = pkgs.lib;
+      stdenv = pkgs.stdenv;
 
       packages = rec {
         proj = pkgs.python3Packages.callPackage ./pkgs/proj { 

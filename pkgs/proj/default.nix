@@ -27,6 +27,8 @@
 , lcov
 , gdb
 , pytest-xdist
+, lib
+, stdenv
 # TODO use these if we ever update nixpkgs
 # , writableTmpDirAsHomeHook
 # , addBinAsPathHook
@@ -35,16 +37,17 @@
 
 let
   bins = [
-    valgrind
-    kcachegrind
-    ff-clang-format
-    bencher-cli
-    hotspot
-    perf
     ccache
     compdb
     cmake
     lcov
+  ] ++ lib.optionals stdenv.isLinux [
+    ff-clang-format
+    bencher-cli
+    hotspot
+    valgrind
+    kcachegrind
+    perf
   ];
 in 
 buildPythonApplication {
