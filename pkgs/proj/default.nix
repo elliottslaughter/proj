@@ -1,4 +1,5 @@
-{ buildPythonApplication
+{ pkgs
+, buildPythonApplication
 , pytestCheckHook
 , typing-extensions
 , enlighten
@@ -27,8 +28,6 @@
 , lcov
 , gdb
 , pytest-xdist
-, lib
-, stdenv
 # TODO use these if we ever update nixpkgs
 # , writableTmpDirAsHomeHook
 # , addBinAsPathHook
@@ -36,6 +35,9 @@
 }:
 
 let
+  lib = pkgs.lib;
+  stdenv = pkgs.stdenv;
+
   bins = [
     ccache
     compdb
