@@ -39,12 +39,12 @@ let
   stdenv = pkgs.stdenv;
 
   bins = [
+    ff-clang-format
     ccache
     compdb
     cmake
     lcov
   ] ++ lib.optionals stdenv.isLinux [
-    ff-clang-format
     bencher-cli
     hotspot
     valgrind
