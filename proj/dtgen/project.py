@@ -316,7 +316,7 @@ def load_spec_file(p: PurePath, repo_file_tree: FileTree) -> Union[StructSpec, E
     except tomllib.TOMLDecodeError as e:
         raise RuntimeError(f"Failed to load spec {p}") from e
 
-    spec_type = raw['type']
+    spec_type = raw.get('type')
     del raw['type']
     try:
         if spec_type == 'struct':
