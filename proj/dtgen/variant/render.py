@@ -480,6 +480,7 @@ def render_fmt_decl(spec: VariantSpec, f: TextIO) -> None:
 
 def render_debug_to_string_decl(spec: VariantSpec, f: TextIO) -> None:
     f.write("std::string debug_to_string() const;")
+    f.write("void debug_print() const;")
 
 def render_fmt_impl(spec: VariantSpec, f: TextIO) -> None:
     typename = get_typename(spec=spec, qualified=True)
@@ -497,6 +498,16 @@ def render_fmt_impl(spec: VariantSpec, f: TextIO) -> None:
                 f.write("nlohmann::json j = *this; return j.dump();")
             else:
                 f.write("return fmt::to_string(*this);")
+
+        with render_function_definition(
+            template_params=spec.template_params,
+            return_type="void",
+            name=f"{get_typename(spec=spec, qualified=False)}::debug_print",
+            args=[],
+            is_const=True,
+            f=f,
+        ):
+            f.write("std::cout << this->debug_to_string() << std::endl;");
 
         with render_function_definition(
             template_params=spec.template_params,

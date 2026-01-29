@@ -36,13 +36,17 @@ def header_includes_for_feature(feature: Feature) -> Sequence[IncludeSpec]:
     elif feature in [Feature.ORD, Feature.EQ]:
         return [IncludeSpec(path=PurePath("tuple"), system=True)]
     elif feature == Feature.JSON:
-        return [IncludeSpec(path=PurePath("nlohmann/json.hpp"), system=True)]
+        return [
+            IncludeSpec(path=PurePath("nlohmann/json.hpp"), system=True),
+            IncludeSpec(path=PurePath("iostream"), system=True)
+        ]
     elif feature == Feature.RAPIDCHECK:
         return [IncludeSpec(path=PurePath("rapidcheck.h"), system=True)]
     elif feature == Feature.FMT:
         return [
             IncludeSpec(path=PurePath("ostream"), system=True),
             IncludeSpec(path=PurePath("fmt/format.h"), system=True),
+            IncludeSpec(path=PurePath("iostream"), system=True),
         ]
     else:
         return []
@@ -355,6 +359,7 @@ def render_json_impl(spec: StructSpec, f: TextIO) -> None:
 
 def render_debug_to_string_decl(spec: StructSpec, f: TextIO) -> None:
     f.write('std::string debug_to_string() const;')
+    f.write('void debug_print() const;')
 
 def render_fmt_decl(spec: StructSpec, f: TextIO) -> None:
     with render_namespace_block(spec.namespace, f):
@@ -383,6 +388,9 @@ def render_fmt_impl(spec: StructSpec, f: TextIO) -> None:
             f.write("debug_to_string() const { nlohmann::json j = *this; return j.dump(); }")
         else:
             f.write("debug_to_string() const { return fmt::to_string(*this); }")
+
+        render_struct_impl_scope(spec, f, return_type="void")
+        f.write("debug_print() const { std::cout << this->debug_to_string() << std::endl; }");
 
         if len(spec.template_params) > 0:
             render_template_abs(spec.template_params, f)
