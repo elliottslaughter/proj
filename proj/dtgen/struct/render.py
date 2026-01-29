@@ -379,7 +379,10 @@ def render_fmt_decl(spec: StructSpec, f: TextIO) -> None:
 def render_fmt_impl(spec: StructSpec, f: TextIO) -> None:
     with render_namespace_block(spec.namespace, f):
         render_struct_impl_scope(spec, f, return_type="std::string")
-        f.write("debug_to_string() const { return fmt::to_string(*this); }")
+        if Feature.JSON in spec.features:
+            f.write("debug_to_string() const { nlohmann::json j = *this; return j.dump(); }")
+        else:
+            f.write("debug_to_string() const { return fmt::to_string(*this); }")
 
         if len(spec.template_params) > 0:
             render_template_abs(spec.template_params, f)

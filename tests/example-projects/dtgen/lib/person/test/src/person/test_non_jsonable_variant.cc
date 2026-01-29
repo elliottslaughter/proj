@@ -1,36 +1,34 @@
 #include <doctest/doctest.h>
-#include <nlohmann/json.hpp>
 #include <type_traits>
-#include "person/int_or_bool.dtg.hh"
+#include "person/non_jsonable_variant.dtg.hh"
 #include <rapidcheck.h>
 #include <fmt/format.h>
 #include <string>
 
-using ::FlexFlow::IntOrBool;
-using ::nlohmann::json;
+using ::FlexFlow::NonJsonableVariant;
 
 TEST_SUITE(TP_TEST_SUITE) {
-  TEST_CASE("IntOrBool") {
+  TEST_CASE("NonJsonableVariant") {
     int i = 5;
     bool b = true;
 
     SUBCASE("brace construction (int)") {
-      auto x = IntOrBool{i};
+      auto x = NonJsonableVariant{i};
       CHECK(x.has<int>());
       CHECK(!x.has<bool>());
       CHECK(x.get<int>() == i);
     }
 
     SUBCASE("brace construction (bool)") {
-      auto x = IntOrBool{b};
+      auto x = NonJsonableVariant{b};
       CHECK(x.has<bool>());
       CHECK(!x.has<int>());
       CHECK(x.get<bool>() == b);
     }
 
     SUBCASE("assignment") {
-      IntOrBool x = IntOrBool{i};
-      IntOrBool x2 = x;
+      NonJsonableVariant x = NonJsonableVariant{i};
+      NonJsonableVariant x2 = x;
 
       CHECK(x.has<int>());
       CHECK(x2.has<int>());
@@ -38,7 +36,7 @@ TEST_SUITE(TP_TEST_SUITE) {
     }
 
     SUBCASE("visit") {
-      IntOrBool x = IntOrBool{i};
+      NonJsonableVariant x = NonJsonableVariant{i};
 
       std::string result = x.visit<std::string>([](auto const &x) -> std::string {
         using T = std::decay_t<decltype(x)>;
@@ -57,31 +55,31 @@ TEST_SUITE(TP_TEST_SUITE) {
     }
 
     SUBCASE("operator==") {
-      auto x = IntOrBool{i};
-      IntOrBool x2 = x;
+      auto x = NonJsonableVariant{i};
+      NonJsonableVariant x2 = x;
 
-      auto x3 = IntOrBool{b};
+      auto x3 = NonJsonableVariant{b};
 
       CHECK(x == x2);
       CHECK(!(x == x3));
     }
 
     SUBCASE("operator!=") {
-      auto x = IntOrBool{i};
-      IntOrBool x2 = x;
+      auto x = NonJsonableVariant{i};
+      NonJsonableVariant x2 = x;
 
-      auto x3 = IntOrBool{b};
+      auto x3 = NonJsonableVariant{b};
 
       CHECK(!(x != x2));
       CHECK(x != x3);
     }
 
     SUBCASE("operator<") {
-      auto xi1 = IntOrBool{i};
-      auto xi2 = IntOrBool{i+1};
+      auto xi1 = NonJsonableVariant{i};
+      auto xi2 = NonJsonableVariant{i+1};
 
-      auto xb1 = IntOrBool{false};
-      auto xb2 = IntOrBool{true};
+      auto xb1 = NonJsonableVariant{false};
+      auto xb2 = NonJsonableVariant{true};
 
       CHECK(!(xi1 < xi1));
       CHECK(xi1 < xi2);
@@ -105,15 +103,15 @@ TEST_SUITE(TP_TEST_SUITE) {
     }
 
     SUBCASE("std::hash") {
-      auto xi1 = IntOrBool{4};
-      auto xi2 = IntOrBool{2};
-      auto xb = IntOrBool{false};
+      auto xi1 = NonJsonableVariant{4};
+      auto xi2 = NonJsonableVariant{2};
+      auto xb = NonJsonableVariant{false};
 
       CHECK(xi1.index() == xi2.index());
       CHECK(xb.index() != xi2.index());
 
-      auto get_hash = [](IntOrBool const &x) -> std::size_t {
-        return std::hash<IntOrBool>{}(x);
+      auto get_hash = [](NonJsonableVariant const &x) -> std::size_t {
+        return std::hash<NonJsonableVariant>{}(x);
       };
 
       CHECK(get_hash(xi1) == get_hash(xi1));
@@ -129,106 +127,62 @@ TEST_SUITE(TP_TEST_SUITE) {
       CHECK(get_hash(xb) == get_hash(xb));
     }
 
-    SUBCASE("manual json deserialization (bool)") {
-      json j = {
-        {"type", "bool"},
-        {"value", b},
-      };
-
-      IntOrBool result = j.get<IntOrBool>();
-
-      IntOrBool correct = IntOrBool{b};
-
-      CHECK(result == correct);
-    }
-
-    SUBCASE("manual json deserialization (int)") {
-      json j = {
-        {"type", "int"},
-        {"value", i},
-      };
-
-      IntOrBool result = j.get<IntOrBool>();
-
-      IntOrBool correct = IntOrBool{i};
-
-      CHECK(result == correct);
-    }
-
-    SUBCASE("json serialization->deserialization is identity (bool)") {
-      IntOrBool correct = IntOrBool{b};
-
-      json j = correct;
-      IntOrBool result = j.get<IntOrBool>();
-      
-      CHECK(result == correct);
-    }
-
-    SUBCASE("json serialization->deserialization is identity (int)") {
-      IntOrBool correct = IntOrBool{i};
-
-      json j = correct;
-      IntOrBool result = j.get<IntOrBool>();
-      
-      CHECK(result == correct);
-    }
-
     SUBCASE("fmt (bool)") {
-      IntOrBool x = IntOrBool{b};
+      NonJsonableVariant x = NonJsonableVariant{b};
 
-      std::string correct = "<IntOrBool bool=1>";
+      std::string correct = "<NonJsonableVariant bool=1>";
       CHECK(fmt::to_string(x) == correct);
     }
 
     SUBCASE("fmt (int)") {
-      IntOrBool x = IntOrBool{i};
+      NonJsonableVariant x = NonJsonableVariant{i};
 
-      std::string correct = "<IntOrBool int=5>";
+      std::string correct = "<NonJsonableVariant int=5>";
       CHECK(fmt::to_string(x) == correct);
     }
 
     SUBCASE("ostream operator<< (bool)") {
-      IntOrBool x = IntOrBool{b};
+      NonJsonableVariant x = NonJsonableVariant{b};
 
       std::ostringstream oss;
       oss << x;
       std::string result = oss.str();
 
-      std::string correct = "<IntOrBool bool=1>";
+      std::string correct = "<NonJsonableVariant bool=1>";
       CHECK(result == correct);
     }
 
     SUBCASE("ostream operator<< (int)") {
-      IntOrBool x = IntOrBool{i};
+      NonJsonableVariant x = NonJsonableVariant{i};
 
       std::ostringstream oss;
       oss << x;
       std::string result = oss.str();
 
-      std::string correct = "<IntOrBool int=5>";
+      std::string correct = "<NonJsonableVariant int=5>";
       CHECK(result == correct);
     }
 
     SUBCASE("debug_to_string (bool)") {
-      IntOrBool x = IntOrBool{b};
+      NonJsonableVariant x = NonJsonableVariant{b};
 
       std::string result = x.debug_to_string();
-      std::string correct = "{\"__type\":\"IntOrBool\",\"type\":\"bool\",\"value\":true}";
+      std::string correct = "<NonJsonableVariant bool=1>";
 
       CHECK(result == correct);
     }
 
     SUBCASE("ostream operator<< (int)") {
-      IntOrBool x = IntOrBool{i};
+      NonJsonableVariant x = NonJsonableVariant{i};
 
       std::string result = x.debug_to_string();
-      std::string correct = "{\"__type\":\"IntOrBool\",\"type\":\"int\",\"value\":5}";
+      std::string correct = "<NonJsonableVariant int=5>";
 
       CHECK(result == correct);
     }
 
     SUBCASE("rapidcheck example") {
-      rc::check([&](IntOrBool const &x) {
+      rc::check([&](NonJsonableVariant const &x) {
         RC_ASSERT(x.has<int>() || x.has<bool>());
       });
     }

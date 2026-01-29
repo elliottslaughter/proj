@@ -493,7 +493,10 @@ def render_fmt_impl(spec: VariantSpec, f: TextIO) -> None:
             is_const=True,
             f=f,
         ):
-            f.write("return fmt::to_string(*this);")
+            if Feature.JSON in spec.features:
+                f.write("nlohmann::json j = *this; return j.dump();")
+            else:
+                f.write("return fmt::to_string(*this);")
 
         with render_function_definition(
             template_params=spec.template_params,
