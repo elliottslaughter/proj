@@ -128,4 +128,11 @@ TEST_SUITE(TP_TEST_SUITE) {
     oss << p;
     CHECK(oss.str() == correct);
   }
+
+  TEST_CASE("debug_to_string") {
+    Person p = Person{ first_name, last_name, age };
+    std::string correct = "<Person first_name=first last_name=last age=15>";
+    std::string result = p.debug_to_string();
+    CHECK(result == correct);
+  }
 }

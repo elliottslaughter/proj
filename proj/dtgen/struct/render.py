@@ -353,6 +353,9 @@ def render_json_impl(spec: StructSpec, f: TextIO) -> None:
                 f.write(f'j["{field.json_key}"] = v.{get_field_accessor(field)};\n')
 
 
+def render_debug_to_string_decl(spec: StructSpec, f: TextIO) -> None:
+    f.write('std::string debug_to_string() const;')
+
 def render_fmt_decl(spec: StructSpec, f: TextIO) -> None:
     with render_namespace_block(spec.namespace, f):
         if len(spec.template_params) > 0:
@@ -375,6 +378,9 @@ def render_fmt_decl(spec: StructSpec, f: TextIO) -> None:
 
 def render_fmt_impl(spec: StructSpec, f: TextIO) -> None:
     with render_namespace_block(spec.namespace, f):
+        render_struct_impl_scope(spec, f, return_type="std::string")
+        f.write("debug_to_string() const { return fmt::to_string(*this); }")
+
         if len(spec.template_params) > 0:
             render_template_abs(spec.template_params, f)
         f.write("std::string format_as")
@@ -514,6 +520,9 @@ def render_decls(spec: StructSpec, f: TextIO) -> None:
             if Feature.ORD in spec.features:
                 f.write("\n")
                 render_ord_function_decls(spec, f)
+            if Feature.FMT in spec.features:
+                f.write("\n")
+                render_debug_to_string_decl(spec, f)
             f.write("\n")
             render_field_decls(spec, f)
 

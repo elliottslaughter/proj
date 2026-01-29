@@ -209,6 +209,24 @@ TEST_SUITE(TP_TEST_SUITE) {
       CHECK(result == correct);
     }
 
+    SUBCASE("debug_to_string (bool)") {
+      IntOrBool x = IntOrBool{b};
+
+      std::string result = x.debug_to_string();
+
+      std::string correct = "<IntOrBool bool=1>";
+      CHECK(result == correct);
+    }
+
+    SUBCASE("ostream operator<< (int)") {
+      IntOrBool x = IntOrBool{i};
+
+      std::string result = x.debug_to_string();
+
+      std::string correct = "<IntOrBool int=5>";
+      CHECK(result == correct);
+    }
+
     SUBCASE("rapidcheck example") {
       rc::check([&](IntOrBool const &x) {
         RC_ASSERT(x.has<int>() || x.has<bool>());

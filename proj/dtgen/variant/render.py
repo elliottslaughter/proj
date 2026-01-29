@@ -478,11 +478,23 @@ def render_fmt_decl(spec: VariantSpec, f: TextIO) -> None:
             f=f,
         )
 
+def render_debug_to_string_decl(spec: VariantSpec, f: TextIO) -> None:
+    f.write("std::string debug_to_string() const;")
 
 def render_fmt_impl(spec: VariantSpec, f: TextIO) -> None:
     typename = get_typename(spec=spec, qualified=True)
 
     with render_namespace_block(spec.namespace, f):
+        with render_function_definition(
+            template_params=spec.template_params,
+            return_type="std::string",
+            name=f"{get_typename(spec=spec, qualified=False)}::debug_to_string",
+            args=[],
+            is_const=True,
+            f=f,
+        ):
+            f.write("return fmt::to_string(*this);")
+
         with render_function_definition(
             template_params=spec.template_params,
             return_type="std::string",
@@ -608,6 +620,9 @@ def render_decls(spec: VariantSpec, f: TextIO) -> None:
             render_require_method_decls(spec=spec, f=f)
             render_try_require_method_decls(spec=spec, f=f)
             render_is_method_decls(spec=spec, f=f)
+
+            if Feature.FMT in spec.features:
+                render_debug_to_string_decl(spec=spec, f=f)
 
             with semicolon(f):
                 render_variant_type(spec=spec, f=f)
