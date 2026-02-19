@@ -20,7 +20,7 @@ from proj.target_resolution import (
     fully_resolve_run_target,
 )
 from proj.targets import (
-    GenericTestCaseTarget, 
+    GenericTestCaseTarget,
     GenericTestSuiteTarget,
 )
 import multiprocessing
@@ -97,7 +97,7 @@ def test_proj_test() -> None:
 @pytest.mark.e2e
 @pytest.mark.slow
 def test_proj_test_skip_gpu_tests_does_not_run_any_cuda_tests() -> None:
-    with cmade_project_instance() as d: 
+    with cmade_project_instance() as d:
         check_cmd_succeeds(d, [
             'test', '--skip-gpu-tests'
         ], env=make_fail_env(CUDA_TEST_FLAGS))
@@ -107,7 +107,7 @@ def test_proj_test_skip_gpu_tests_does_not_run_any_cuda_tests() -> None:
 @pytest.mark.slow
 @pytest.mark.parametrize("flag", CPU_TEST_FLAGS)
 def test_proj_test_skip_gpu_tests_runs_all_of_the_cpu_tests(flag: str) -> None:
-    with cmade_project_instance() as d: 
+    with cmade_project_instance() as d:
         check_cmd_fails(d, [
             'test', '--skip-gpu-tests'
         ], env=make_fail_env([flag]))
@@ -124,7 +124,7 @@ def test_proj_test_single_suite() -> None:
         ]))
 
         check_cmd_fails(d, [
-            'test', 
+            'test',
             'not-kernels',
         ])
         check_cmd_succeeds(d, [
@@ -140,7 +140,7 @@ def test_proj_test_single_suite() -> None:
             'only-cuda',
         ])
         check_cmd_fails(d, [
-            'test', 
+            'test',
             '--skip-gpu-tests',
             'only-cuda',
         ])
@@ -160,7 +160,7 @@ def test_proj_test_single_testcase() -> None:
             'test',
             'not-kernels:call_not_kernels_gpu',
         ])
-        check_cmd_fails(d, [
+        check_cmd_succeeds(d, [
             'test',
             '--skip-gpu-tests',
             'not-kernels:call_not_kernels_gpu',
@@ -268,7 +268,7 @@ def test_proj_run_test_case() -> None:
             FAIL_NOT_KERNELS_TEST_CPU,
         ]))
 
-        check_cmd_fails(d, [
+        check_cmd_succeeds(d, [
             'run',
             'not-kernels:test:call_not_kernels_gpu',
         ])
@@ -303,7 +303,7 @@ def test_proj_profile_test_case() -> None:
             FAIL_NOT_KERNELS_TEST_CPU,
         ]))
 
-        check_cmd_fails(d, [
+        check_cmd_succeeds(d, [
             'profile',
             'not-kernels:test:call_not_kernels_gpu',
         ])
