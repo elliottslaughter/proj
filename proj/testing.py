@@ -128,9 +128,9 @@ def resolve_test_case_target_using_build(
         _l.debug("Was able to resolve type of test case %s to be %s without build. Returning...", test_case, result_without_build)
         return result_without_build
     else:
-        all_test_cases_in_suite = list_test_cases_in_suite(
+        all_test_cases_in_suite = tuple(list_test_cases_in_suite(
             test_case.test_suite, build_dir
-        )
+        ))
         cpu_test_case_names = [
             t.test_case_name
             for t in all_test_cases_in_suite
