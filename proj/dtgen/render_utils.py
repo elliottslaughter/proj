@@ -50,6 +50,11 @@ def angles(f: TextIO) -> Iterator[None]:
     yield
     f.write(">")
 
+@contextmanager
+def doxygen_ignore(f: TextIO) -> Iterator[None]:
+    f.write("\n///\\cond\n")
+    yield
+    f.write("\n///\\endcond\n")
 
 @contextmanager
 def ifblock(cond: str, f: TextIO) -> Iterator[None]:
@@ -106,7 +111,7 @@ def render_namespace_block(name: Optional[str], f: TextIO) -> Iterator[None]:
         f.write(f"namespace {name}")
         with braces(f):
             yield
-        f.write("// namespace {name}\n")
+        f.write(f"// namespace {name}\n")
     else:
         yield
 

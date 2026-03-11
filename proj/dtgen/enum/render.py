@@ -11,6 +11,7 @@ from proj.dtgen.render_utils import (
     commad,
     parens,
     render_doxygen_docstring,
+    doxygen_ignore,
 )
 from contextlib import contextmanager
 from typing import (
@@ -156,21 +157,23 @@ def render_rapidcheck_impl(spec: EnumSpec, f: TextIO) -> None:
 
 
 def render_hash_decl(spec: EnumSpec, f: TextIO) -> None:
-    with render_namespace_block("std", f):
-        with semicolon(f):
-            f.write("template <>\n")
-            f.write(f"struct hash<{spec.namespace}::{spec.name}> ")
-            with braces(f):
-                f.write(f"size_t operator()({spec.namespace}::{spec.name}) const;\n")
+    with doxygen_ignore(f):
+        with render_namespace_block("std", f):
+            with semicolon(f):
+                f.write("template <>\n")
+                f.write(f"struct hash<{spec.namespace}::{spec.name}> ")
+                with braces(f):
+                    f.write(f"size_t operator()({spec.namespace}::{spec.name}) const;\n")
 
 
 def render_hash_impl(spec: EnumSpec, f: TextIO) -> None:
-    with render_namespace_block("std", f):
-        f.write(
-            f"size_t hash<{spec.namespace}::{spec.name}>::operator()({spec.namespace}::{spec.name} x) const"
-        )
-        with braces(f):
-            f.write("return std::hash<int>{}(static_cast<int>(x));\n")
+    with doxygen_ignore(f):
+        with render_namespace_block("std", f):
+            f.write(
+                f"size_t hash<{spec.namespace}::{spec.name}>::operator()({spec.namespace}::{spec.name} x) const"
+            )
+            with braces(f):
+                f.write("return std::hash<int>{}(static_cast<int>(x));\n")
 
 
 def render_header(spec: EnumSpec, f: TextIO) -> None:

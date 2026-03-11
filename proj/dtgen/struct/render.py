@@ -3,7 +3,6 @@ from typing import (
     Optional,
     Sequence,
     Iterator,
-    Callable,
 )
 from .spec import (
     StructSpec,
@@ -23,6 +22,7 @@ from proj.dtgen.render_utils import (
     commad,
     render_template_abs,
     render_doxygen_docstring,
+    doxygen_ignore,
 )
 import proj.dtgen.render_utils as render_utils
 import io
@@ -244,19 +244,20 @@ def render_binop_impl(spec: StructSpec, op: str, f: TextIO) -> None:
 
 
 def render_hash_decl(spec: StructSpec, f: TextIO) -> None:
-    with render_namespace_block("std", f):
-        render_template_abs(spec.template_params, f)
-        with semicolon(f):
-            f.write("struct hash")
-            with angles(f):
-                render_typename(spec=spec, qualified=True, f=f)
-            with braces(f):
-                with semicolon(f):
-                    f.write("size_t operator()")
-                    with parens(f):
-                        render_typename(spec=spec, qualified=True, f=f)
-                        f.write(" const &")
-                    f.write("const")
+    with doxygen_ignore(f):
+        with render_namespace_block("std", f):
+            render_template_abs(spec.template_params, f)
+            with semicolon(f):
+                f.write("struct hash")
+                with angles(f):
+                    render_typename(spec=spec, qualified=True, f=f)
+                with braces(f):
+                    with semicolon(f):
+                        f.write("size_t operator()")
+                        with parens(f):
+                            render_typename(spec=spec, qualified=True, f=f)
+                            f.write(" const &")
+                        f.write("const")
 
 
 def get_field_accessor(field: FieldSpec) -> str:
@@ -267,26 +268,27 @@ def get_field_accessor(field: FieldSpec) -> str:
 
 
 def render_hash_impl(spec: StructSpec, f: TextIO) -> None:
-    with render_namespace_block("std", f):
-        if len(spec.template_params) > 0:
-            render_template_abs(spec.template_params, f)
-        f.write("size_t ")
-        f.write("hash")
-        with angles(f):
-            render_template_app(spec, f, with_namespace=True)
-        f.write("::operator()")
-        with parens(f):
-            render_typename(spec=spec, qualified=True, f=f)
-            f.write(" const &x")
-        f.write("const")
-        with braces(f):
-            f.write("size_t result = 0;\n")
-            for field in spec.fields:
-                f.write(
-                    f"result ^= std::hash<{field.type_}>{{}}(x.{get_field_accessor(field)}) + 0x9e3779b9 + (result << 6) + (result >> 2);"
-                )
-                # f.write(f'hash_combine(result, x.{field.name});\n')
-            f.write("return result;\n")
+    with doxygen_ignore(f):
+        with render_namespace_block("std", f):
+            if len(spec.template_params) > 0:
+                render_template_abs(spec.template_params, f)
+            f.write("size_t ")
+            f.write("hash")
+            with angles(f):
+                render_template_app(spec, f, with_namespace=True)
+            f.write("::operator()")
+            with parens(f):
+                render_typename(spec=spec, qualified=True, f=f)
+                f.write(" const &x")
+            f.write("const")
+            with braces(f):
+                f.write("size_t result = 0;\n")
+                for field in spec.fields:
+                    f.write(
+                        f"result ^= std::hash<{field.type_}>{{}}(x.{get_field_accessor(field)}) + 0x9e3779b9 + (result << 6) + (result >> 2);"
+                    )
+                    # f.write(f'hash_combine(result, x.{field.name});\n')
+                f.write("return result;\n")
 
 
 def render_json_decl(spec: StructSpec, f: TextIO) -> None:

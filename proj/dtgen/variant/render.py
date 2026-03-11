@@ -29,6 +29,7 @@ from proj.dtgen.render_utils import (
     ifblock,
     elseblock,
     render_doxygen_docstring,
+    doxygen_ignore,
 )
 import proj.dtgen.render_utils as render_utils
 import io
@@ -339,42 +340,44 @@ def get_typename(*, spec: VariantSpec, qualified: bool) -> str:
 def render_hash_decl(spec: VariantSpec, f: TextIO) -> None:
     typename = get_typename(spec=spec, qualified=True)
 
-    with render_namespace_block("std", f):
-        with render_struct_block(
-            name=f"hash<{typename}>",
-            template_params=spec.template_params,
-            specialization=True,
-            f=f,
-        ):
-            render_function_declaration(
-                name="operator()",
-                return_type="size_t",
-                args=[f"{typename} const &"],
-                is_const=True,
+    with doxygen_ignore(f):
+        with render_namespace_block("std", f):
+            with render_struct_block(
+                name=f"hash<{typename}>",
+                template_params=spec.template_params,
+                specialization=True,
                 f=f,
-            )
+            ):
+                render_function_declaration(
+                    name="operator()",
+                    return_type="size_t",
+                    args=[f"{typename} const &"],
+                    is_const=True,
+                    f=f,
+                )
 
 
 def render_hash_impl(spec: VariantSpec, f: TextIO) -> None:
     typename = get_typename(spec=spec, qualified=True)
 
-    with render_namespace_block("std", f):
-        with render_function_definition(
-            template_params=spec.template_params,
-            name=f"hash<{typename}>::operator()",
-            return_type="size_t",
-            args=[f"{typename} const &x"],
-            is_const=True,
-            f=f,
-        ):
-            with semicolon(f):
-                f.write("return ")
-                render_template_app(
-                    func="std::hash",
-                    params=[get_variant_type(spec=spec)],
-                    f=f,
-                )
-                f.write("{}(x.raw_variant)")
+    with doxygen_ignore(f):
+        with render_namespace_block("std", f):
+            with render_function_definition(
+                template_params=spec.template_params,
+                name=f"hash<{typename}>::operator()",
+                return_type="size_t",
+                args=[f"{typename} const &x"],
+                is_const=True,
+                f=f,
+            ):
+                with semicolon(f):
+                    f.write("return ")
+                    render_template_app(
+                        func="std::hash",
+                        params=[get_variant_type(spec=spec)],
+                        f=f,
+                    )
+                    f.write("{}(x.raw_variant)")
 
 
 def render_json_decl(spec: VariantSpec, f: TextIO) -> None:
