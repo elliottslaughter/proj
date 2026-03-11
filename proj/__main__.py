@@ -115,6 +115,9 @@ from .includes import (
     parse_include_spec,
     find_occurrences_of_include,
 )
+from .doxygen import (
+    run_doxygen,
+)
 
 _l = logging.getLogger(name="proj")
 
@@ -886,29 +889,22 @@ class MainDoxygenArgs:
 def main_doxygen(args: MainDoxygenArgs) -> int:
     config = get_config(args.path)
 
-    env = {
-        **os.environ,
-        "FF_HOME": config.base,
-    }
-    stderr: Union[int, TextIO] = sys.stderr
-    stdout: Union[int, TextIO] = sys.stdout
+    stderr: Optional[TextIO] = sys.stderr
+    stdout: Optional[TextIO] = sys.stdout
 
+    env = dict(os.environ)
     if args.verbosity > logging.INFO:
         env["DOXYGEN_QUIET"] = "YES"
     if args.verbosity > logging.WARN:
         env["DOXYGEN_WARNINGS"] = "NO"
     if args.verbosity > logging.CRITICAL:
-        stderr = subprocess.DEVNULL
-        stdout = subprocess.DEVNULL
+        stderr = None
+        stdout = None
 
-    config.doxygen_dir.mkdir(exist_ok=True, parents=True)
-    subprocess.check_call(
-        ["doxygen", "docs/doxygen/Doxyfile"],
-        env=env,
-        stdout=stdout,
-        stderr=stderr,
-        cwd=config.base,
-    )
+    did_succeed = run_doxygen(config=config, stdout=stdout, stderr=stderr, env=env)
+
+    if not did_succeed:
+        return STATUS_ERR
 
     if args.browser:
         xdg_open(config.doxygen_dir / "html/index.html")

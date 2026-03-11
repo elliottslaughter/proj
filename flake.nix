@@ -77,6 +77,7 @@
               gbenchmark
               lcov
               gdb
+              doxygen
             ])
             (with pkgs.python3Packages; [
               pip

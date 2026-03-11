@@ -2,6 +2,7 @@ from typing import (
     Optional,
     Sequence,
     Iterable,
+    TextIO,
 )
 from os import (
     PathLike,
@@ -65,6 +66,11 @@ from .includes import (
     find_includes_in_cpp_file_contents,
     get_include_path_for_file,
 )
+from .doxygen import (
+    run_doxygen,
+)
+import sys
+import os
 
 _l = logging.getLogger(__name__)
 
@@ -76,6 +82,7 @@ class Check(StrEnum):
     LAYOUT = "layout"
     INCLUDE = "include"
     IFNDEF = "ifndef"
+    DOXYGEN = "doxygen"
 
 def run_layout_check(
     repo_path_tree: PathTree,
@@ -154,6 +161,26 @@ def run_ifndef_check(
     if failed:
         fail_with_error("Ifndef check failed.")
 
+def run_doxygen_check(
+    config: ProjectConfig,
+    verbosity: int,
+) -> None:
+    stderr: Optional[TextIO] = sys.stderr
+    stdout: Optional[TextIO] = sys.stdout
+
+    env = dict(os.environ)
+    if verbosity > logging.INFO:
+        env["DOXYGEN_QUIET"] = "YES"
+    if verbosity > logging.WARN:
+        env["DOXYGEN_WARNINGS"] = "NO"
+    if verbosity > logging.CRITICAL:
+        stderr = None
+        stdout = None
+
+    did_succeed = run_doxygen(config=config, stdout=stdout, stderr=stderr, env=env)
+    if not did_succeed:
+        fail_with_error("Doxygen check failed.")
+
 def run_formatter_check(
     config: ProjectConfig, files: Optional[Sequence[PathLike[str]]] = None
 ) -> None:
@@ -181,10 +208,14 @@ def run_check(config: ProjectConfig, check: Check, verbosity: int) -> None:
             config.extension_config,
         )
     elif check == Check.INCLUDE:
-        return run_include_check(
+        run_include_check(
             repo_file_tree,
             config.extension_config,
         )
+    elif check == Check.DOXYGEN:
+        run_doxygen_check(config, verbosity=verbosity)
+    else:
+        raise ValueError(f'Invalid check: {check!r}')
 
 
 def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int) -> None:
@@ -247,6 +278,11 @@ def run_cpu_ci(config: ProjectConfig, verbosity: int) -> None:
 
     if len(test_results.failed) > 0:
         fail_without_error()
+
+    if config.doxygen_enabled:
+        _l.info("Running doxygen check...")
+        run_doxygen_check(config, verbosity=verbosity)
+
 
 
 def run_gpu_ci(config: ProjectConfig, verbosity: int) -> None:

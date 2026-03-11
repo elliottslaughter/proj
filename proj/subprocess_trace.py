@@ -26,9 +26,9 @@ _l = logging.getLogger(__name__)
 
 def check_call(command, **kwargs):
     if kwargs.get("shell", False):
-        pretty_cmd = " ".join(command)
-        _l.info(f"+++ $ {pretty_cmd}")
-        subprocess.check_call(pretty_cmd, **kwargs)
+        assert isinstance(command, str)
+        _l.info(f"+++ $ {command}")
+        subprocess.check_call(command, **kwargs)
     else:
         pretty_cmd = shlex.join(command)
         _l.info(f"+++ $ {pretty_cmd}")
@@ -51,9 +51,21 @@ def tee_output_bytes(
     *,
     stdout: Optional[IO[bytes]] = None,
     stderr: Optional[IO[bytes]] = None,
+    env: Optional[Mapping[str, str]] = None,
+    cwd: Optional[Path] = None,
     shell: bool = False,
+    check: bool = True,
 ) -> Tuple[bytes, bytes]:
-    result = _tee_output(command, stdout=stdout, stderr=stderr, text=False, shell=shell)
+    result = _tee_output(
+        command, 
+        stdout=stdout, 
+        stderr=stderr, 
+        env=env, 
+        cwd=cwd, 
+        text=False, 
+        shell=shell, 
+        check=check,
+    )
     assert isinstance(result[0], bytes)
     assert isinstance(result[1], bytes)
     return result
@@ -64,9 +76,21 @@ def tee_output_str(
     *,
     stdout: Optional[IO[str]] = None,
     stderr: Optional[IO[str]] = None,
+    env: Optional[Mapping[str, str]] = None,
+    cwd: Optional[Path] = None,
     shell: bool = False,
+    check: bool = True,
 ) -> Tuple[str, str]:
-    result = _tee_output(command, stdout=stdout, stderr=stderr, text=True, shell=shell)
+    result = _tee_output(
+        command, 
+        stdout=stdout, 
+        stderr=stderr, 
+        env=env, 
+        cwd=cwd, 
+        text=True, 
+        shell=shell, 
+        check=check,
+    )
     assert isinstance(result[0], str)
     assert isinstance(result[1], str)
     return result
@@ -77,8 +101,11 @@ def _tee_output(
     *,
     stdout: Optional[Union[IO[bytes], IO[str]]] = None,
     stderr: Optional[Union[IO[bytes], IO[str]]] = None,
+    env: Optional[Mapping[str, str]] = None,
+    cwd: Optional[Path] = None,
     text: bool = False,
     shell: bool = False,
+    check: bool = True,
 ) -> Union[Tuple[bytes, bytes], Tuple[str, str]]:
     if isinstance(command, str):
         _l.info(f"+++ $ {command}")
@@ -91,7 +118,7 @@ def _tee_output(
             _l.info(f"+++ $ {pretty_cmd}")
 
     proc = subprocess.Popen(
-        command, stdout=PIPE, stderr=PIPE, bufsize=0, text=text, shell=shell
+        command, stdout=PIPE, stderr=PIPE, bufsize=0, text=text, shell=shell, env=env, cwd=cwd,
     )
     stderrs: Any
     stdouts: Any
@@ -131,7 +158,7 @@ def _tee_output(
     stderrs[1].flush()
     stdouts[0].flush()
     stdouts[1].flush()
-    if returncode == 0:
+    if returncode == 0 or not check:
         return (stdouts[0].getvalue(), stderrs[0].getvalue())
     else:
         assert returncode > 0

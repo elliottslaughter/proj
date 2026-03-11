@@ -24,6 +24,7 @@
 , nlohmann_json
 , fmt
 , tree
+, doxygen
 , lcov
 , gdb
 , pytest-xdist
@@ -45,6 +46,7 @@ let
     compdb
     cmake
     lcov
+    doxygen
   ];
 in 
 buildPythonApplication {

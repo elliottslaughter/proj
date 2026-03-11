@@ -92,6 +92,7 @@ class ProjectConfig:
     project_name: str
     base: Path
     _targets: Mapping[str, Union[LibConfig, BinConfig]]
+    _doxygen: Optional[bool] = None
     _default_build_targets: Optional[Tuple[str, ...]] = None
     _default_test_targets: Optional[Tuple[str, ...]] = None
     _default_benchmark_targets: Optional[Tuple[str, ...]] = None
@@ -111,6 +112,13 @@ class ProjectConfig:
     @property
     def repo(self) -> Repo:
         return Repo(self.base)
+
+    @property
+    def doxygen_enabled(self) -> bool:
+        if self._doxygen is None:
+            return False
+        else:
+            return self._doxygen
 
     @property
     def debug_build_dir(self) -> Path:
@@ -516,6 +524,8 @@ def load_str_tuple(x: object) -> Optional[Tuple[str, ...]]:
         map_optional(x, lambda l: require_list_of(l, require_str)), lambda ll: tuple(ll)
     )
 
+def load_bool(x: object) -> Optional[bool]:
+    return map_optional(x, require_bool)
 
 def load_path(x: object) -> Optional[Path]:
     return map_optional(map_optional(x, require_str), lambda s: Path(s))
@@ -554,6 +564,7 @@ class ConfigKey(StrEnum):
     TEST_HEADER_PATH = "test_header_path"
     CUDA_LAUNCH_CMD = "cuda_launch_cmd"
     LAYOUT_IGNORE_PATHS = "layout_ignore_paths"
+    DOXYGEN = "doxygen"
 
 def load_parsed_config(repo: Repo, raw: object) -> ProjectConfig:
     _l.debug("Loading parsed config: %s", raw)
@@ -566,6 +577,7 @@ def load_parsed_config(repo: Repo, raw: object) -> ProjectConfig:
         project_name=require_str(raw[ConfigKey.PROJECT_NAME]),
         base=Path(repo.path),
         _targets=_load_targets(raw[ConfigKey.TARGETS]),
+        _doxygen=load_bool(raw.get(ConfigKey.DOXYGEN)),
         _default_build_targets=load_str_tuple(raw.get(ConfigKey.DEFAULT_BIN_TARGETS)),
         _default_test_targets=load_str_tuple(raw.get(ConfigKey.DEFAULT_TEST_TARGETS)),
         _default_benchmark_targets=load_str_tuple(
