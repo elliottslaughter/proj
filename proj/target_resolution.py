@@ -49,7 +49,7 @@ def fully_resolve_run_target(
     jobs: int,
     verbosity: int,
     skip_gpu: bool,
-) -> Union[CpuRunTarget, CudaRunTarget,]:
+) -> Union[CpuRunTarget, CudaRunTarget]:
     resolved_target: Union[
         CpuBinTarget,
         CudaBinTarget,

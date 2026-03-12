@@ -192,6 +192,46 @@ def test_proj_test_single_testcase() -> None:
 
 @pytest.mark.e2e
 @pytest.mark.slow
+def test_proj_test_resolving_through_build() -> None:
+    # since kernels contains both gpu and cpu tests, this exercises the
+    # "resolve using build" in proj/testing.py
+    with cmade_project_instance() as d:
+
+        check_cmd_succeeds(d, [
+            'test',
+            '--force-assume-cuda-support',
+            'kernels:call_kernels_gpu',
+        ], env=make_pass_env([
+            FAIL_KERNELS_TEST_GPU,
+        ]))
+
+        check_cmd_fails(d, [
+            'test',
+            '--force-assume-cuda-support',
+            'kernels:call_kernels_gpu',
+        ], env=make_fail_env([
+            FAIL_KERNELS_TEST_GPU,
+        ]))
+
+        check_cmd_succeeds(d, [
+            'test',
+            '--force-assume-cuda-support',
+            'kernels:call_kernels_cpu',
+        ], env=make_pass_env([
+            FAIL_KERNELS_TEST_CPU,
+        ]))
+
+        check_cmd_fails(d, [
+            'test',
+            '--force-assume-cuda-support',
+            'kernels:call_kernels_cpu',
+        ], env=make_fail_env([
+            FAIL_KERNELS_TEST_CPU,
+        ]))
+
+
+@pytest.mark.e2e
+@pytest.mark.slow
 def test_proj_run_test_suite() -> None:
     with cmade_project_instance() as d:
         check_cmd_succeeds(d, [

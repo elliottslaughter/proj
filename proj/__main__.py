@@ -57,6 +57,7 @@ from .targets import (
     MixedTestSuiteTarget,
     CpuTestSuiteTarget,
     CudaTestSuiteTarget,
+    CudaRunTarget,
     BenchmarkSuiteTarget,
     BenchmarkCaseTarget,
     BuildTarget,
@@ -371,6 +372,7 @@ class MainRunArgs:
 
 
 def main_run(args: MainRunArgs) -> int:
+    _l.debug('Starting to execute %s', main_run.__name__)
     config = get_config(args.path)
 
     if args.debug_build:
@@ -387,12 +389,19 @@ def main_run(args: MainRunArgs) -> int:
         skip_gpu=args.skip_gpu,
     )
 
+    has_cuda = check_if_machine_supports_cuda()
+    if not has_cuda and isinstance(run_target, CudaRunTarget):
+        fail_with_error(
+            f"Cannot run target {args.target} as no gpus are available on the current machine."
+        )
+
     binary_path = build_dir / run_target.executable_path
     assert binary_path.is_file()
 
     cmd = [str(binary_path), *run_target.args, *args.target_run_args]
     result = subprocess.run(cmd)
     print(result)
+    _l.debug('Finished executing %s', main_run.__name__)
     return result.returncode
 
 
@@ -429,6 +438,12 @@ def main_profile(args: MainProfileArgs) -> int:
         skip_gpu=args.skip_gpu,
     )
 
+    has_cuda = check_if_machine_supports_cuda()
+    if not has_cuda and isinstance(resolved_target, CudaRunTarget):
+        fail_with_error(
+            f"Cannot profile target {args.target} as no gpus are available on the current machine."
+        )
+
     profile_file = profile_target(
         build_dir, resolved_target, dry_run=args.dry_run, tool=args.tool
     )
@@ -451,6 +466,7 @@ class MainTestArgs:
     browser: bool
     debug: bool
     skip_gpu_tests: bool
+    force_assume_cuda_support: bool
     targets: Collection[Union[GenericTestSuiteTarget, GenericTestCaseTarget]]
 
 
@@ -542,11 +558,14 @@ def main_test(args: MainTestArgs) -> int:
         )
         requested_test_targets_to_run = list(requested_test_targets)
 
-    if len(get_test_cases(requested_test_targets_to_run)) == 0:
+    test_cases = get_test_cases(requested_test_targets_to_run)
+    test_suites = get_test_suites(requested_test_targets_to_run)
+    if (
+        len(test_cases) == 0 and len(test_suites) > 0
+    ):
         pass
     elif (
-        len(get_test_suites(requested_test_targets_to_run)) == 0
-        and len(get_test_cases(requested_test_targets_to_run)) == 1
+        len(test_suites) == 0 and len(test_cases) == 1
     ):
         pass
     else:
@@ -554,7 +573,10 @@ def main_test(args: MainTestArgs) -> int:
             "Currently only n test suites or 1 test case is allowed. If you need this feature, let @lockshaw know."
         )
 
-    has_cuda = check_if_machine_supports_cuda()
+    if args.force_assume_cuda_support:
+        has_cuda = True
+    else:
+        has_cuda = check_if_machine_supports_cuda()
 
     def cuda_failure():
         fail_with_error(
@@ -652,11 +674,11 @@ def main_test(args: MainTestArgs) -> int:
             )
 
         if isinstance(only_to_run, CudaTestCaseTarget) and args.skip_gpu_tests:
-            _l.debug("Test %s requires CUDA but --skip-gpu-tests flag was passed. Skipping...", only_to_run)
-            pass
+            fail_with_error(f"Test {only_to_run} requires CUDA but --skip-gpu-tests flag was passed.")
         elif isinstance(only_to_run, CudaTestCaseTarget) and not has_cuda:
             cuda_failure()
         else:
+            _l.debug('Determined that test %s is runnable for has_cuda=%s', only_to_run, has_cuda)
             test_case_result = run_test_case(
                 config=config,
                 test_case=only_to_run,
@@ -969,6 +991,7 @@ def make_parser() -> argparse.ArgumentParser:
     )
     test_p.add_argument("--skip-gpu-tests", action="store_true")
     test_p.add_argument("--debug", action="store_true")
+    test_p.add_argument("--force-assume-cuda-support", action="store_true", help=argparse.SUPPRESS)
     test_p.add_argument("targets", nargs="*", type=parse_generic_test_target)
     add_verbosity_args(test_p)
 
@@ -1098,6 +1121,7 @@ def main(argv: Sequence[str]) -> int:
     logging.basicConfig(
         level=calculate_log_level(args),
     )
+    _l.debug('Running for argv=%s', argv)
 
     if hasattr(args, "func") and args.func is not None:
         result = args.func(args)
