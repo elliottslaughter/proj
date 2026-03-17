@@ -2,7 +2,7 @@ from typing import (
     Optional,
     Sequence,
     Iterable,
-    TextIO,
+    BinaryIO,
 )
 from os import (
     PathLike,
@@ -165,8 +165,8 @@ def run_doxygen_check(
     config: ProjectConfig,
     verbosity: int,
 ) -> None:
-    stderr: Optional[TextIO] = sys.stderr
-    stdout: Optional[TextIO] = sys.stdout
+    stderr: Optional[BinaryIO] = sys.stderr.buffer
+    stdout: Optional[BinaryIO] = sys.stdout.buffer
 
     env = dict(os.environ)
     if verbosity > logging.INFO:
@@ -177,7 +177,7 @@ def run_doxygen_check(
         stderr = None
         stdout = None
 
-    did_succeed = run_doxygen(config=config, stdout=stdout, stderr=stderr, env=env)
+    did_succeed = run_doxygen(config=config, log_level=verbosity, stdout=stdout, stderr=stderr, env=env)
     if not did_succeed:
         fail_with_error("Doxygen check failed.")
 

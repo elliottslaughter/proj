@@ -72,7 +72,8 @@ buildPythonApplication {
     export HOME="$(mktemp -d)"
     export PATH="$out/bin:$PATH"
     mypy proj/ tests/
-    TMP=/dev/shm pytest -n $NIX_BUILD_CORES --dist loadgroup -x -s -vvvv tests/ -m 'not no_sandbox' --log-level=DEBUG --slow
+    # TMP=/dev/shm pytest -n $NIX_BUILD_CORES --dist loadgroup -x -s -vvvv tests/ -m 'not no_sandbox' --log-level=DEBUG --slow
+    TMP=/dev/shm pytest -n $NIX_BUILD_CORES --dist loadgroup -x -s -vvvv tests/ -m 'not no_sandbox' --log-level=DEBUG
 
     runHook postCheck
   '';

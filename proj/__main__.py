@@ -3,7 +3,7 @@ from typing import (
     Any,
     Sequence,
     Union,
-    TextIO,
+    BinaryIO,
     Collection,
     List,
     TypeVar,
@@ -911,8 +911,8 @@ class MainDoxygenArgs:
 def main_doxygen(args: MainDoxygenArgs) -> int:
     config = get_config(args.path)
 
-    stderr: Optional[TextIO] = sys.stderr
-    stdout: Optional[TextIO] = sys.stdout
+    stderr: Optional[BinaryIO] = sys.stderr.buffer
+    stdout: Optional[BinaryIO] = sys.stdout.buffer
 
     env = dict(os.environ)
     if args.verbosity > logging.INFO:
@@ -923,7 +923,13 @@ def main_doxygen(args: MainDoxygenArgs) -> int:
         stderr = None
         stdout = None
 
-    did_succeed = run_doxygen(config=config, stdout=stdout, stderr=stderr, env=env)
+    did_succeed = run_doxygen(
+        config=config, 
+        log_level=args.verbosity, 
+        stdout=stdout, 
+        stderr=stderr, 
+        env=env,
+    )
 
     if not did_succeed:
         return STATUS_ERR

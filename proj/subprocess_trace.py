@@ -19,7 +19,8 @@ from typing import (
     Mapping,
 )
 from pathlib import Path
-
+import os
+import time
 
 _l = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ def check_output(command, **kwargs):
         return subprocess.check_output(command, **kwargs)
 
 
-def tee_output_bytes(
+def tee_output(
     command: Union[str, Sequence[str]],
     *,
     stdout: Optional[IO[bytes]] = None,
@@ -56,117 +57,90 @@ def tee_output_bytes(
     shell: bool = False,
     check: bool = True,
 ) -> Tuple[bytes, bytes]:
-    result = _tee_output(
-        command, 
-        stdout=stdout, 
-        stderr=stderr, 
-        env=env, 
-        cwd=cwd, 
-        text=False, 
-        shell=shell, 
-        check=check,
-    )
-    assert isinstance(result[0], bytes)
-    assert isinstance(result[1], bytes)
-    return result
-
-
-def tee_output_str(
-    command: Union[str, Sequence[str]],
-    *,
-    stdout: Optional[IO[str]] = None,
-    stderr: Optional[IO[str]] = None,
-    env: Optional[Mapping[str, str]] = None,
-    cwd: Optional[Path] = None,
-    shell: bool = False,
-    check: bool = True,
-) -> Tuple[str, str]:
-    result = _tee_output(
-        command, 
-        stdout=stdout, 
-        stderr=stderr, 
-        env=env, 
-        cwd=cwd, 
-        text=True, 
-        shell=shell, 
-        check=check,
-    )
-    assert isinstance(result[0], str)
-    assert isinstance(result[1], str)
-    return result
-
-
-def _tee_output(
-    command: Union[str, Sequence[str]],
-    *,
-    stdout: Optional[Union[IO[bytes], IO[str]]] = None,
-    stderr: Optional[Union[IO[bytes], IO[str]]] = None,
-    env: Optional[Mapping[str, str]] = None,
-    cwd: Optional[Path] = None,
-    text: bool = False,
-    shell: bool = False,
-    check: bool = True,
-) -> Union[Tuple[bytes, bytes], Tuple[str, str]]:
     if isinstance(command, str):
         _l.info(f"+++ $ {command}")
     else:
         if shell:
-            command = " ".join(command)
+            command = shlex.join(command)
             _l.info(f"+++ $ {command}")
         else:
             pretty_cmd = shlex.join(command)
             _l.info(f"+++ $ {pretty_cmd}")
 
     proc = subprocess.Popen(
-        command, stdout=PIPE, stderr=PIPE, bufsize=0, text=text, shell=shell, env=env, cwd=cwd,
+        command, stdout=PIPE, stderr=PIPE, bufsize=0, text=False, shell=shell, env=env, cwd=cwd,
     )
     stderrs: Any
     stdouts: Any
-    if text:
-        if stdout is None:
-            stdout = sys.stdout
-        if stderr is None:
-            stderr = sys.stderr
-        stderrs = (io.StringIO(), stderr)
-        stdouts = (io.StringIO(), stdout)
-    else:
-        if stdout is None:
-            stdout = sys.stdout.buffer
-        if stderr is None:
-            stderr = sys.stderr.buffer
-        stderrs = (io.BytesIO(), stderr)
-        stdouts = (io.BytesIO(), stdout)
+
+    if stdout is None:
+        stdout = sys.stdout.buffer
+    if stderr is None:
+        stderr = sys.stderr.buffer
+    stderrs = (io.BytesIO(), stderr)
+    stdouts = (io.BytesIO(), stdout)
 
     def write_both(output, contents):
-        output[0].write(contents)
-        output[1].write(contents)
+        if contents is not None:
+            output[0].write(contents)
+            output[1].write(contents)
+
+    assert proc.stdout is not None
+    assert proc.stderr is not None
+    assert not proc.stdout.closed
+    assert not proc.stderr.closed
+
+    os.set_blocking(proc.stderr.fileno(), False)
+    os.set_blocking(proc.stdout.fileno(), False)
 
     returncode = None
+    current_time = time.time()
     while True:
+        last_time = time.time()
+        _l.debug('Polling...')
         returncode = proc.poll()
+        _l.debug('Polling returned with returncode %s', returncode)
         if returncode is None:
-            assert proc.stderr is not None
-            assert proc.stdout is not None
-            write_both(stderrs, proc.stderr.read())
-            write_both(stdouts, proc.stdout.read())
+            _l.debug('Reading from stdout')
+            stdout_contents = proc.stdout.read()
+            stdout_contents_len = None if stdout_contents is None else len(stdout_contents)
+            _l.debug('Read %s characters from process stdout', stdout_contents_len)
+            _l.debug('Reading from stderr')
+            stderr_contents = proc.stderr.read()
+            stderr_contents_len = None if stderr_contents is None else len(stderr_contents)
+            _l.debug('Read %s characters from process stderr', stderr_contents_len)
+            write_both(stdouts, stdout_contents)
+            write_both(stderrs, stderr_contents)
         else:
+            _l.debug('Reading remaining output from command')
             (remaining_stdout, remaining_stderr) = proc.communicate()
             write_both(stderrs, remaining_stderr)
             write_both(stdouts, remaining_stdout)
             break
+        last_time = current_time
+        current_time = time.time()
+        time_delta = current_time - last_time
+        time.sleep(max(0.05 - time_delta, 0.0))
     stderrs[0].flush()
     stderrs[1].flush()
     stdouts[0].flush()
     stdouts[1].flush()
+
+    out = stdouts[0].getvalue()
+    err = stderrs[0].getvalue()
+
     if returncode == 0 or not check:
-        return (stdouts[0].getvalue(), stderrs[0].getvalue())
+        return (
+            out,
+            err,
+        )
     else:
         assert returncode > 0
         raise CalledProcessError(
             returncode=returncode,
             cmd=command,
-            output=stdouts[0].getvalue(),
-            stderr=stderrs[0].getvalue(),
+            output=out,
+            stderr=err,
         )
 
 

@@ -1,15 +1,17 @@
 from .config_file import ProjectConfig
 from typing import (
     Optional,
-    TextIO,
+    BinaryIO,
     Mapping,
 )
+import logging
 from . import subprocess_trace as subprocess
 
 def run_doxygen(
     config: ProjectConfig,
-    stdout: Optional[TextIO],
-    stderr: Optional[TextIO],
+    log_level: int,
+    stdout: Optional[BinaryIO],
+    stderr: Optional[BinaryIO],
     env: Mapping[str, str],
 ) -> bool:
     assert config.doxygen_enabled
@@ -20,8 +22,16 @@ def run_doxygen(
     }
 
     config.doxygen_dir.mkdir(exist_ok=True, parents=True)
-    stdout_contents, stderr_contents = subprocess.tee_output_str(
-        "doxygen docs/doxygen/Doxyfile 2>&1 | grep -v DOT_GRAPH_MAX_NODES",
+
+    cmd: str
+    if log_level <= logging.DEBUG:
+        cmd = "doxygen docs/doxygen/Doxyfile 2>&1"
+    else:
+        cmd = "doxygen docs/doxygen/Doxyfile 2>&1 | grep -v DOT_GRAPH_MAX_NODES"
+
+
+    stdout_contents, stderr_contents = subprocess.tee_output(
+        cmd,
         env=env,
         stdout=stdout,
         stderr=stderr,
