@@ -86,13 +86,21 @@ class Check(StrEnum):
 
 def run_layout_check(
     repo_path_tree: PathTree,
-    extension_config: ExtensionConfig,
-    ignore_paths: Iterable[RepoRelPath],
+    config: ProjectConfig,
 ) -> None:
+    extension_config = config.extension_config
+    ignore_paths = [RepoRelPath(p) for p in config.layout_ignore_paths]
+
     failed = False
     for error in _run_layout_check(repo_path_tree, extension_config, ignore_paths):
         if isinstance(error, IncompleteGroup):
             _l.warn('Incomplete file group %s', error.file_group)
+            _l.warn('  Present:')
+            for present_role in error.present:
+                present_path = get_repo_rel_path(File(error.file_group, present_role), extension_config)
+                assert repo_path_tree.has_file(present_path.path)
+                _l.warn('  - %s', present_path.path)
+            _l.warn('  Missing:')
             for missing_role in error.missing:
                 missing_path = get_repo_rel_path(File(error.file_group, missing_role), extension_config)
                 _l.warn('  - %s', missing_path.path)
@@ -196,9 +204,9 @@ def run_check(config: ProjectConfig, check: Check, verbosity: int) -> None:
     if check == Check.FORMAT:
         run_formatter_check(config)
     elif check == Check.LAYOUT:
-        run_layout_check(repo_file_tree, config.extension_config, [RepoRelPath(p) for p in config.layout_ignore_paths])
+        run_layout_check(repo_file_tree, config)
     elif check == Check.CPU_CI:
-        run_cpu_ci(config, verbosity=verbosity)
+        run_cpu_ci(config, repo_file_tree, verbosity=verbosity)
     elif check == Check.GPU_CI:
         run_gpu_ci(config, verbosity=verbosity)
     elif check == Check.IFNDEF:
@@ -239,8 +247,10 @@ def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMt
     )
 
 
-def run_cpu_ci(config: ProjectConfig, verbosity: int) -> None:
-    repo_file_tree = load_filesystem_for_repo(config.repo)
+def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int) -> None:
+
+    _l.info("Running repository layout check...")
+    run_layout_check(repo_file_tree, config)
 
     _l.info("Running formatter check...")
     run_formatter_check(config)

@@ -114,19 +114,25 @@ def test_scan_repo_for_components() -> None:
 def test_detect_incomplete_groups_detects_missing_header() -> None:
     file_group = FileGroup(PurePath('a'), Component.library('d'))
 
-    input = {
-        file_group: [
+    present = [
             RoleInGroup.SOURCE,
             RoleInGroup.DTGEN_TOML,
             RoleInGroup.TEST,
             RoleInGroup.BENCHMARK,
         ]
+
+    input = {
+        file_group: present,
     }
 
     result = set(detect_incomplete_groups(input))
 
     correct = {
-        IncompleteGroup(file_group, frozenset([RoleInGroup.PUBLIC_HEADER]))
+        IncompleteGroup(
+            file_group, 
+            present=frozenset(present),
+            missing=frozenset([RoleInGroup.PUBLIC_HEADER]),
+        ),
     }
 
     assert result == correct
@@ -194,7 +200,16 @@ def test_run_layout_check() -> None:
     group = FileGroup(PurePath('example_struct'), component)
 
     correct = {
-        IncompleteGroup(group, frozenset({RoleInGroup.PUBLIC_HEADER})),
+        IncompleteGroup(
+            group, 
+            present=frozenset({
+                RoleInGroup.DTGEN_TOML, 
+                RoleInGroup.SOURCE, 
+                RoleInGroup.TEST, 
+                RoleInGroup.BENCHMARK,
+            }),
+            missing=frozenset({RoleInGroup.PUBLIC_HEADER}),
+        ),
         UnrecognizedFile(ComponentRelPath(PurePath('src/bad.cc'), component))
     }
 

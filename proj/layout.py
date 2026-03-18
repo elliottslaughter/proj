@@ -40,6 +40,7 @@ _l = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class IncompleteGroup:
     file_group: FileGroup
+    present: FrozenSet[RoleInGroup]
     missing: FrozenSet[RoleInGroup]
 
 @dataclass(frozen=True)
@@ -63,14 +64,19 @@ def _scan_component_for_files(
     ) -> KnownFile | File | UnrecognizedFile:
         component_rel_path = ComponentRelPath(p, component)
 
-        if p.name == 'README.md':
-            return KnownFile(component_rel_path)
         allowed_cmake_files = [
             PurePath('CMakeLists.txt'),
             PurePath('test/CMakeLists.txt'),
             PurePath('benchmark/CMakeLists.txt'),
         ]
-        if p in allowed_cmake_files:
+        
+        if (p.name == 'README.md' or 
+            p.suffix in ['.dox'] or
+            p.is_relative_to(PurePath('test/src/internal')) or
+            p.is_relative_to(PurePath('benchmark/src/internal')) or
+            (p.is_relative_to(PurePath('test/src')) and p.name == 'test_e2e.cc') or
+            p in allowed_cmake_files
+        ):
             return KnownFile(component_rel_path)
 
         file = parse_file_path(ComponentRelPath(p, component), extension_config)
@@ -150,6 +156,7 @@ def detect_incomplete_groups(m: Mapping[FileGroup, Collection[RoleInGroup]]) -> 
         if len(missing_roles) > 0 and file_group.group_path not in allowlist:
             yield IncompleteGroup(
                 file_group=file_group,
+                present=frozenset(path_roles),
                 missing=missing_roles,
             )
 
