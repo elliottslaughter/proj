@@ -7,6 +7,10 @@ static void example_benchmark(benchmark::State &state) {
   int arg1 = state.range(0);
   int arg2 = state.range(1);
 
+#ifdef LIB1_BENCHMARKS_FAIL_BUILD
+  some_function_that_does_not_exist();
+#endif
+
   for (auto _ : state) {
     int result = 0;
     for (int i = 0; i < arg1; i++) {

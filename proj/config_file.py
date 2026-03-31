@@ -178,12 +178,12 @@ class ProjectConfig:
 
     @property
     def all_build_targets(self) -> Tuple[BuildTarget, ...]:
-        return tuple(
-            [
-                *[lib.build_target for lib in sorted(self.lib_targets)],
-                *[bin.build_target for bin in sorted(self.bin_targets)],
-            ]
-        )
+        return tuple([
+            *[t.build_target for t in self.all_test_targets],
+            *[t.build_target for t in self.lib_targets],
+            *[t.build_target for t in self.bin_targets],
+            *[t.build_target for t in self.all_benchmark_targets],
+        ])
 
     @property
     def default_build_targets(self) -> Tuple[BuildTarget, ...]:
@@ -269,11 +269,21 @@ class ProjectConfig:
             return lib.cuda_test_target
 
     @property
+    def all_benchmark_targets(
+        self,
+    ) -> Tuple[Union[BenchmarkSuiteTarget, BenchmarkCaseTarget], ...]:
+        return tuple([
+            lib.benchmark_target
+            for lib, lib_config in self.lib_targets.items()
+            if lib_config.has_cpu_only_benchmark_suite or lib_config.has_cuda_benchmark_suite
+        ])
+
+    @property
     def default_benchmark_targets(
         self,
     ) -> Tuple[Union[BenchmarkSuiteTarget, BenchmarkCaseTarget], ...]:
         if self._default_benchmark_targets is None:
-            return tuple([lib.benchmark_target for lib in sorted(self.lib_targets)])
+            return self.all_benchmark_targets
         else:
             return tuple(
                 parse_generic_benchmark_target(s)

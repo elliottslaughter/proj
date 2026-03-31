@@ -266,7 +266,7 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
     _l.info("Running cmake...")
     cmake_all(config, fast=False, trace=False)
 
-    cpu_build_targets = [t.build_target for t in config.all_cpu_test_targets]
+    cpu_build_targets = config.all_build_targets
     _l.info("Building %s", cpu_build_targets)
     build_targets(
         repo=config.repo,

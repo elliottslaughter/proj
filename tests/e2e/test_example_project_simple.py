@@ -571,7 +571,7 @@ def test_check_format() -> None:
 
 @pytest.mark.e2e
 @pytest.mark.slow
-def test_check_cpu_ci() -> None:
+def test_check_cpu_ci_requires_formatting_to_pass() -> None:
     with cmade_project_instance() as d:
         check_cmd_fails(d, [
             'check',
@@ -580,6 +580,78 @@ def test_check_cpu_ci() -> None:
         check_cmd_succeeds(d, [
             'format',
         ])
+        check_cmd_succeeds(d, [
+            'check',
+            'cpu-ci',
+        ])
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_check_cpu_ci_requires_binaries_to_build() -> None:
+    with cmade_project_instance() as d:
+        check_cmd_succeeds(d, [
+            'format',
+        ])
+        check_cmd_fails(d, [
+            'check',
+            'cpu-ci',
+        ], {
+            'CXXFLAGS': '-DBIN1_FAIL_BUILD',
+        })
+        check_cmd_succeeds(d, [
+            'check',
+            'cpu-ci',
+        ])
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_check_cpu_ci_requires_libraries_to_build() -> None:
+    with cmade_project_instance() as d:
+        check_cmd_succeeds(d, [
+            'format',
+        ])
+        check_cmd_fails(d, [
+            'check',
+            'cpu-ci',
+        ], {
+            'CXXFLAGS': '-DLIB1_FAIL_BUILD',
+        })
+        check_cmd_succeeds(d, [
+            'check',
+            'cpu-ci',
+        ])
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_check_cpu_ci_requires_library_tests_to_build() -> None:
+    with cmade_project_instance() as d:
+        check_cmd_succeeds(d, [
+            'format',
+        ])
+        check_cmd_fails(d, [
+            'check',
+            'cpu-ci',
+        ], {
+            'CXXFLAGS': '-DLIB1_TESTS_FAIL_BUILD',
+        })
+        check_cmd_succeeds(d, [
+            'check',
+            'cpu-ci',
+        ])
+
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_check_cpu_ci_requires_library_benchmarks_to_build() -> None:
+    with cmade_project_instance() as d:
+        check_cmd_succeeds(d, [
+            'format',
+        ])
+        check_cmd_fails(d, [
+            'check',
+            'cpu-ci',
+        ], {
+            'CXXFLAGS': '-DLIB1_BENCHMARKS_FAIL_BUILD',
+        })
         check_cmd_succeeds(d, [
             'check',
             'cpu-ci',
