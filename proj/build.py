@@ -31,10 +31,10 @@ def build_targets(
     _l.info("Building targets: %s", _targets)
     if len(_targets) == 0:
         fail_with_error("No build targets selected")
-    
+
     result = subprocess.run(
         [
-            "make",
+            "ninja",
             "-C",
             str(build_dir),
             "-j",

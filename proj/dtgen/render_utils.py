@@ -188,9 +188,10 @@ def render_function_definition(
     args: Sequence[str],
     is_const: bool = False,
     initializer_list: Sequence[str] = tuple(),
+    template_specialization: bool = False,
     f: TextIO,
 ) -> Iterator[None]:
-    if len(template_params) > 0:
+    if len(template_params) > 0 or template_specialization:
         render_template_abs(template_params, f)
     if return_type is not None:
         f.write(f"{return_type} ")

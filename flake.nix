@@ -8,8 +8,8 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils, ... }: flake-utils.lib.eachDefaultSystem (system: 
-    let 
+  outputs = { self, nixpkgs, flake-utils, ... }: flake-utils.lib.eachDefaultSystem (system:
+    let
       pkgs = import nixpkgs {
         inherit system;
         config.allowUnfree = true;
@@ -18,7 +18,7 @@
       lib = pkgs.lib;
 
       packages = rec {
-        proj = pkgs.python3Packages.callPackage ./pkgs/proj { 
+        proj = pkgs.python3Packages.callPackage ./pkgs/proj {
           inherit pytest-skip-slow;
           inherit bencher-cli;
           inherit ff-clang-format;
@@ -63,8 +63,8 @@
         };
 
         default = pkgs.mkShell {
-          inputsFrom = [ 
-            self.packages.${system}.proj 
+          inputsFrom = [
+            self.packages.${system}.proj
           ];
 
           buildInputs = builtins.concatLists [
@@ -78,6 +78,7 @@
               lcov
               gdb
               doxygen
+              ninja
             ])
             (with pkgs.python3Packages; [
               pip

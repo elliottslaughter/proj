@@ -16,6 +16,7 @@
 , ccache
 , compdb
 , cmake
+, ninja
 , mypy
 , doctest
 , gbenchmark
@@ -45,10 +46,11 @@ let
     ccache
     compdb
     cmake
+    ninja
     lcov
     doxygen
   ];
-in 
+in
 buildPythonApplication {
   pname = "proj";
   version = "0.0.1";

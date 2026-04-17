@@ -40,6 +40,7 @@ def run_cmake(cmake_args: Iterable[str], require_shell: bool, cwd: Path) -> None
 
 
 TARGET = re.compile(r"^\.\.\. (?P<target>.*)$")
+NINJA_TARGET = re.compile(r"^(?P<target>.*): .*$")
 
 
 def get_target_names_list(build_dir: Path) -> Iterator[str]:
@@ -52,7 +53,7 @@ def get_target_names_list(build_dir: Path) -> Iterator[str]:
     ).splitlines()
 
     for line in lines:
-        match = TARGET.fullmatch(line)
+        match = NINJA_TARGET.fullmatch(line)
         if match is not None:
             yield match.group("target")
 
@@ -65,7 +66,8 @@ def get_targets_list(names: ConfiguredNames, build_dir: Path) -> Iterator[BuildT
 
 
 def render_args(arg_map: Mapping[str, str], trace: bool) -> List[str]:
-    cmake_args = [f"-D{k}={v}" for k, v in arg_map.items()]
+    cmake_args = ["-G", "Ninja"]
+    cmake_args += [f"-D{k}={v}" for k, v in arg_map.items()]
     cmake_args += shlex.split(os.environ.get("CMAKE_FLAGS", ""))
     if trace:
         cmake_args += ["--trace", "--trace-expand", "--trace-redirect=trace.log"]

@@ -1,5 +1,6 @@
 from .spec import (
     VariantSpec,
+    ValueSpec,
     Feature,
 )
 from typing import (
@@ -50,6 +51,7 @@ def header_includes_for_feature(feature: Feature) -> Sequence[IncludeSpec]:
     elif feature == Feature.FMT:
         return [
             IncludeSpec(path=PurePath("ostream"), system=True),
+            IncludeSpec(path=PurePath("iostream"), system=True),
             IncludeSpec(path=PurePath("fmt/format.h"), system=True),
         ]
     else:
@@ -77,21 +79,21 @@ def header_includes_for_features(spec: VariantSpec) -> Sequence[IncludeSpec]:
 
 
 def infer_header_includes(spec: VariantSpec) -> Sequence[IncludeSpec]:
-    return list(
-        set(
-            [
-                *spec.includes,
-                IncludeSpec(path=PurePath("variant"), system=True),
-                IncludeSpec(path=PurePath("type_traits"), system=True),
-                IncludeSpec(path=PurePath("cstddef"), system=True),
-                IncludeSpec(path=PurePath("stdexcept"), system=True),
-                IncludeSpec(path=PurePath("optional"), system=True),
-                IncludeSpec(path=PurePath("fmt/format.h"), system=True),
-                IncludeSpec(path=PurePath("libassert/assert.hpp"), system=True),
-                *header_includes_for_features(spec=spec),
-            ]
-        )
-    )
+    includes = set([
+        *spec.includes,
+        IncludeSpec(path=PurePath("variant"), system=True),
+        IncludeSpec(path=PurePath("type_traits"), system=True),
+        IncludeSpec(path=PurePath("cstddef"), system=True),
+        IncludeSpec(path=PurePath("stdexcept"), system=True),
+        IncludeSpec(path=PurePath("optional"), system=True),
+        IncludeSpec(path=PurePath("fmt/format.h"), system=True),
+        IncludeSpec(path=PurePath("libassert/assert.hpp"), system=True),
+        *header_includes_for_features(spec=spec),
+    ])
+    if any(value.indirect for value in spec.values):
+        includes.add(IncludeSpec(path=PurePath("memory"), system=True))
+
+    return list(includes)
 
 
 def source_includes_for_features(spec: VariantSpec) -> Sequence[IncludeSpec]:
@@ -177,6 +179,8 @@ def render_is_method_impls(spec: VariantSpec, f: TextIO) -> None:
     typename = get_typename(spec=spec, qualified=False)
 
     for value in spec.values:
+        storage_type = get_storage_type_for_value_spec(value)
+
         if value.method_key is not None:
             with render_function_definition(
                 template_params=spec.template_params,
@@ -188,7 +192,7 @@ def render_is_method_impls(spec: VariantSpec, f: TextIO) -> None:
             ):
                 with sline(f=f):
                     f.write(
-                        f"return std::holds_alternative<{value.type_}>(this->raw_variant)"
+                        f"return std::holds_alternative<{storage_type}>(this->raw_variant)"
                     )
 
 
@@ -217,12 +221,18 @@ def render_require_method_impls(spec: VariantSpec, f: TextIO) -> None:
                 is_const=True,
                 f=f,
             ):
+                storage_type = get_storage_type_for_value_spec(value)
                 with sline(f):
-                    f.write(f"bool holds_expected = std::holds_alternative<{value.type_}>(this->raw_variant)")
+                    f.write(f"bool holds_expected = std::holds_alternative<{storage_type}>(this->raw_variant)")
                 with sline(f):
                     f.write(f"ASSERT(holds_expected, \"Expected {value.type_}\")")
-                with sline(f=f):
-                    f.write(f"return std::get<{value.type_}>(this->raw_variant)")
+
+                if value.indirect:
+                    with sline(f=f):
+                        f.write(f"return *std::get<{storage_type}>(this->raw_variant)")
+                else:
+                    with sline(f=f):
+                        f.write(f"return std::get<{storage_type}>(this->raw_variant)")
 
 
 def render_try_require_method_decls(spec: VariantSpec, f: TextIO) -> None:
@@ -277,6 +287,21 @@ def render_has_method(spec: VariantSpec, f: TextIO) -> None:
         )
         f.write(f"return std::holds_alternative<{typevar}>(this->raw_variant);")
 
+def render_has_method_specializations(spec: VariantSpec, f: TextIO) -> None:
+    typename = get_typename(spec=spec, qualified=False)
+
+    for value_spec in spec.values:
+        if value_spec.indirect:
+            with render_function_definition(
+                template_params=[],
+                name=f"{typename}::has<{value_spec.type_}>",
+                return_type="bool",
+                args=[],
+                is_const=True,
+                template_specialization=True,
+                f=f,
+            ):
+                f.write(f"return std::holds_alternative<std::shared_ptr<{value_spec.type_}>>(this->raw_variant);")
 
 def render_get_method(spec: VariantSpec, is_const: bool, f: TextIO) -> None:
     typevar = get_fresh_typevar(spec)
@@ -302,6 +327,28 @@ def render_get_method(spec: VariantSpec, is_const: bool, f: TextIO) -> None:
             f.write(f"ASSERT(holds_expected)")
         with sline(f):
             f.write(f"return std::get<{typevar}>(this->raw_variant)")
+
+def render_get_method_specializations(spec: VariantSpec, is_const: bool, f: TextIO) -> None:
+    typename = get_typename(spec=spec, qualified=False)
+
+    const_modifier = "const" if is_const else ""
+    for value_spec in spec.values:
+        if value_spec.indirect:
+            with render_function_definition(
+                template_params=[],
+                name=f"{typename}::get<{value_spec.type_}>",
+                return_type=f"{value_spec.type_} {const_modifier} &",
+                args=[],
+                is_const=is_const,
+                template_specialization=True,
+                f=f,
+            ):
+                with sline(f):
+                    f.write(f"bool holds_expected = std::holds_alternative<std::shared_ptr<{value_spec.type_}>>(this->raw_variant)")
+                with sline(f):
+                    f.write(f"ASSERT(holds_expected)")
+                with sline(f):
+                    f.write(f"return *std::get<std::shared_ptr<{value_spec.type_}>>(this->raw_variant)")
 
 
 def render_binop_decl(spec: VariantSpec, op: str, f: TextIO) -> None:
@@ -586,8 +633,17 @@ def render_rapidcheck_impl(spec: VariantSpec, f: TextIO) -> None:
                             f.write(f"gen::arbitrary<{value.type_}>()")
 
 
+def get_storage_type_for_value_spec(value_spec: ValueSpec) -> str:
+    if value_spec.indirect:
+        return f'std::shared_ptr<{value_spec.type_}>'
+    else:
+        return value_spec.type_
+
 def render_variant_type(spec: VariantSpec, f: TextIO) -> None:
-    render_template_app("std::variant", [v.type_ for v in spec.values], f=f)
+    render_template_app(
+        "std::variant",
+        [get_storage_type_for_value_spec(v) for v in spec.values],
+        f=f)
 
 
 def get_variant_type(spec: VariantSpec) -> str:
@@ -599,9 +655,17 @@ def get_variant_type(spec: VariantSpec) -> str:
 EQ_OPS = ("==", "!=")
 ORD_OPS = ("<", ">", "<=", ">=")
 
+def render_fwd_decls(spec: VariantSpec, f: TextIO) -> None:
+    for fwd_decl in spec.fwd_decls:
+        with render_utils.sline(f):
+            f.write(fwd_decl)
+
 
 def render_decls(spec: VariantSpec, f: TextIO) -> None:
     with render_namespace_block(spec.namespace, f):
+        if len(spec.fwd_decls) > 0:
+            render_fwd_decls(spec, f)
+
         if spec.docstring is not None:
             f.write("\n\n" + render_doxygen_docstring(spec.docstring))
         with render_struct_block(
@@ -645,6 +709,11 @@ def render_decls(spec: VariantSpec, f: TextIO) -> None:
                 render_variant_type(spec=spec, f=f)
                 f.write(" raw_variant")
 
+        render_has_method_specializations(spec=spec, f=f)
+        render_get_method_specializations(spec=spec, is_const=True, f=f)
+        render_get_method_specializations(spec=spec, is_const=False, f=f)
+
+
     if Feature.HASH in spec.features:
         render_hash_decl(spec=spec, f=f)
 
@@ -666,7 +735,10 @@ def render_impls(spec: VariantSpec, f: TextIO) -> None:
             f.write(
                 f"{get_typename(spec=spec, qualified=False)}::{spec.name}({value.type_} const &v)"
             )
-            f.write(" : raw_variant(v) { }")
+            if value.indirect:
+                f.write(f" : raw_variant(std::make_shared<{value.type_}>(v)) {{ }}")
+            else:
+                f.write(" : raw_variant(v) { }")
 
         if Feature.EQ in spec.features:
             for op in EQ_OPS:
@@ -705,6 +777,8 @@ def render_header(spec: VariantSpec, f: TextIO) -> None:
     if len(spec.template_params) > 0:
         f.write("\n")
         render_impls(spec, f)
+
+    render_includes(spec.post_includes, f)
 
 
 def render_source(spec: VariantSpec, f: TextIO) -> None:

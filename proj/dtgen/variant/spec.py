@@ -35,6 +35,7 @@ class ValueSpec:
     _key: Optional[str]
     _json_key: Optional[str]
     _fmt_key: Optional[str]
+    _indirect: Optional[bool]
 
     def json(self) -> Json:
         return {
@@ -51,6 +52,14 @@ class ValueSpec:
             return self.type_
         else:
             return self._key
+
+    @property
+    def indirect(self) -> bool:
+        if self._indirect is None:
+            return False
+        else:
+            return self._indirect
+
 
     @property
     def method_key(self) -> Optional[str]:
@@ -75,6 +84,8 @@ class ValueSpec:
 class VariantSpec:
     includes: Sequence[IncludeSpec]
     src_includes: Sequence[IncludeSpec]
+    post_includes: Sequence[IncludeSpec]
+    fwd_decls: Sequence[str]
     namespace: Optional[str]
     template_params: Sequence[str]
     name: str
@@ -87,6 +98,8 @@ class VariantSpec:
         return {
             "includes": [include.json() for include in self.includes],
             "src_includes": [include.json() for include in self.src_includes],
+            "post_includes": [include.json() for include in self.post_includes],
+            "fwd_decls": self.fwd_decls,
             "namespace": self.namespace,
             "template_params": list(self.template_params),
             "name": self.name,
@@ -121,6 +134,7 @@ def parse_value_spec(raw: Mapping[str, Any]) -> ValueSpec:
         _key=raw.get("key", None),
         _json_key=raw.get("json_key", None),
         _fmt_key=raw.get("fmt_key", None),
+        _indirect=raw.get("indirect", None),
     )
 
 
@@ -131,6 +145,11 @@ def parse_variant_spec(raw: Mapping[str, Any]) -> VariantSpec:
         src_includes=[
             parse_include_spec(include) for include in raw.get("src_includes", ())
         ],
+        post_includes=[
+            parse_include_spec(post_include)
+            for post_include in raw.get("post_includes", ())
+        ],
+        fwd_decls=raw.get("fwd_decls", ()),
         explicit_constructors=raw.get("explicit_constructors", True),
         template_params=raw.get("template_params", ()),
         name=raw["name"],
