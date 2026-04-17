@@ -1044,6 +1044,24 @@ def test_move_dry_run() -> None:
         check_not_moved(src_test_path, dst_test_path)
         check_not_moved(src_toml_path, dst_toml_path)
 
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_move_dry_run_does_not_fail_if_tree_contains_nontext_files() -> None:
+    with project_instance() as d:
+        src_path = Path('./lib/lib1/include/lib1/example_enum.h')
+        dst_path = Path('./lib/lib1/include/lib1/example_enum_moved.h')
+
+        (d / 'lib/lib1/include/lib1/.something_bad.cc.swp').write_bytes(
+            b'\xff\xff\x00\x05',
+        )
+
+        require_successful(run(d, [
+            'mv',
+            '-n',
+            str(src_path),
+            str(dst_path),
+        ]))
+
 
 @pytest.mark.e2e
 @pytest.mark.slow

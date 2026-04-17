@@ -13,44 +13,70 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class AllowMask:
     paths: FrozenSet[PurePath]
+    extensions: FrozenSet[str]
 
     def is_allowed(self, p: PurePath) -> bool:
         for _p in self.paths:
             if p.is_relative_to(_p):
                 return True
+        for _ext in self.extensions:
+            if p.name.endswith(_ext):
+                return True
         return False
 
     def restrict_to_subdir(self, p: PurePath) -> 'AllowMask':
         return AllowMask.from_iter(
-            rel for _p in self.paths if (rel := saturating_relative_to(_p, p)) is not None
+            paths=[rel for _p in self.paths if (rel := saturating_relative_to(_p, p)) is not None],
+            extensions=self.extensions,
         )
 
     @staticmethod
-    def from_iter(it: Iterable[str | PurePath]) -> 'AllowMask':
-        return AllowMask(frozenset([
-            PurePath(p) for p in it
-        ]))
+    def from_iter(*, paths: Iterable[str | PurePath] = tuple(), extensions: Iterable[str] = tuple()) -> 'AllowMask':
+        _extensions = frozenset(extensions)
+        for ext in _extensions:
+            assert '/' not in ext
+            assert ext.startswith('.')
+
+        return AllowMask(
+            paths=frozenset([
+                PurePath(p) for p in paths
+            ]),
+            extensions=_extensions,
+        )
 
 @dataclass(frozen=True)
 class IgnoreMask:
     paths: FrozenSet[PurePath]
+    extensions: FrozenSet[str]
 
     def is_allowed(self, p: PurePath) -> bool:
         for _p in self.paths:
             if p.is_relative_to(_p):
                 return False
+        for _ext in self.extensions:
+            if p.name.endswith(_ext):
+                return False
         return True
 
     def restrict_to_subdir(self, p: PurePath) -> 'IgnoreMask':
         return IgnoreMask.from_iter(
-            rel for _p in self.paths if (rel := saturating_relative_to(_p, p)) is not None
+            paths=[rel for _p in self.paths if (rel := saturating_relative_to(_p, p)) is not None],
+            extensions=self.extensions,
         )
 
     @staticmethod
-    def from_iter(it: Iterable[str | PurePath]) -> 'IgnoreMask':
-        return IgnoreMask(frozenset([
-            PurePath(p) for p in it
-        ]))
+    def from_iter(*, paths: Iterable[str | PurePath] = tuple(), extensions: Iterable[str] = tuple()) -> 'IgnoreMask':
+        _extensions = frozenset(extensions)
+        for ext in _extensions:
+            assert '/' not in ext
+            assert ext.startswith('.')
+
+        return IgnoreMask(
+            paths=frozenset([
+                PurePath(p) for p in paths
+            ]),
+            extensions=_extensions,
+        )
 
 class MaskedPathTree(PathTree):
     _wrapped: PathTree
