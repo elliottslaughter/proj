@@ -287,7 +287,22 @@ def render_has_method(spec: VariantSpec, f: TextIO) -> None:
         )
         f.write(f"return std::holds_alternative<{typevar}>(this->raw_variant);")
 
-def render_has_method_specializations(spec: VariantSpec, f: TextIO) -> None:
+def render_has_method_specializations_decl(spec: VariantSpec, f: TextIO) -> None:
+    typename = get_typename(spec=spec, qualified=False)
+
+    for value_spec in spec.values:
+        if value_spec.indirect:
+            render_function_declaration(
+                template_params=[],
+                name=f"{typename}::has<{value_spec.type_}>",
+                return_type="bool",
+                args=[],
+                is_const=True,
+                is_template_specialization=True,
+                f=f,
+            )
+
+def render_has_method_specializations_impl(spec: VariantSpec, f: TextIO) -> None:
     typename = get_typename(spec=spec, qualified=False)
 
     for value_spec in spec.values:
@@ -298,7 +313,7 @@ def render_has_method_specializations(spec: VariantSpec, f: TextIO) -> None:
                 return_type="bool",
                 args=[],
                 is_const=True,
-                template_specialization=True,
+                is_template_specialization=True,
                 f=f,
             ):
                 f.write(f"return std::holds_alternative<std::shared_ptr<{value_spec.type_}>>(this->raw_variant);")
@@ -328,7 +343,23 @@ def render_get_method(spec: VariantSpec, is_const: bool, f: TextIO) -> None:
         with sline(f):
             f.write(f"return std::get<{typevar}>(this->raw_variant)")
 
-def render_get_method_specializations(spec: VariantSpec, is_const: bool, f: TextIO) -> None:
+def render_get_method_specializations_decl(spec: VariantSpec, is_const: bool, f: TextIO) -> None:
+    typename = get_typename(spec=spec, qualified=False)
+
+    const_modifier = "const" if is_const else ""
+    for value_spec in spec.values:
+        if value_spec.indirect:
+            render_function_declaration(
+                template_params=[],
+                name=f"{typename}::get<{value_spec.type_}>",
+                return_type=f"{value_spec.type_} {const_modifier} &",
+                args=[],
+                is_const=is_const,
+                is_template_specialization=True,
+                f=f,
+            )
+
+def render_get_method_specializations_impl(spec: VariantSpec, is_const: bool, f: TextIO) -> None:
     typename = get_typename(spec=spec, qualified=False)
 
     const_modifier = "const" if is_const else ""
@@ -340,7 +371,7 @@ def render_get_method_specializations(spec: VariantSpec, is_const: bool, f: Text
                 return_type=f"{value_spec.type_} {const_modifier} &",
                 args=[],
                 is_const=is_const,
-                template_specialization=True,
+                is_template_specialization=True,
                 f=f,
             ):
                 with sline(f):
@@ -392,7 +423,7 @@ def render_hash_decl(spec: VariantSpec, f: TextIO) -> None:
             with render_struct_block(
                 name=f"hash<{typename}>",
                 template_params=spec.template_params,
-                specialization=True,
+                is_template_specialization=True,
                 f=f,
             ):
                 render_function_declaration(
@@ -434,7 +465,7 @@ def render_json_decl(spec: VariantSpec, f: TextIO) -> None:
         with render_struct_block(
             name=f"adl_serializer<{typename}>",
             template_params=spec.template_params,
-            specialization=True,
+            is_template_specialization=True,
             f=f,
         ):
             render_function_declaration(
@@ -601,7 +632,7 @@ def render_rapidcheck_decl(spec: VariantSpec, f: TextIO) -> None:
         with render_struct_block(
             name=f"Arbitrary<{typename}>",
             template_params=spec.template_params,
-            specialization=True,
+            is_template_specialization=True,
             f=f,
         ):
             render_function_declaration(
@@ -709,9 +740,9 @@ def render_decls(spec: VariantSpec, f: TextIO) -> None:
                 render_variant_type(spec=spec, f=f)
                 f.write(" raw_variant")
 
-        render_has_method_specializations(spec=spec, f=f)
-        render_get_method_specializations(spec=spec, is_const=True, f=f)
-        render_get_method_specializations(spec=spec, is_const=False, f=f)
+        render_has_method_specializations_decl(spec=spec, f=f)
+        render_get_method_specializations_decl(spec=spec, is_const=True, f=f)
+        render_get_method_specializations_decl(spec=spec, is_const=False, f=f)
 
 
     if Feature.HASH in spec.features:
@@ -751,6 +782,10 @@ def render_impls(spec: VariantSpec, f: TextIO) -> None:
         render_require_method_impls(spec=spec, f=f)
         render_try_require_method_impls(spec=spec, f=f)
         render_is_method_impls(spec=spec, f=f)
+
+        render_has_method_specializations_impl(spec=spec, f=f)
+        render_get_method_specializations_impl(spec=spec, is_const=True, f=f)
+        render_get_method_specializations_impl(spec=spec, is_const=False, f=f)
 
     if Feature.HASH in spec.features:
         render_hash_impl(spec=spec, f=f)

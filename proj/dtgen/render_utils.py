@@ -141,9 +141,9 @@ def render_template_app(func: str, params: Sequence[str], f: TextIO) -> None:
 
 @contextmanager
 def render_struct_block(
-    name: str, template_params: Sequence[str], f: TextIO, specialization: bool = False
+    name: str, template_params: Sequence[str], f: TextIO, is_template_specialization: bool = False
 ) -> Iterator[None]:
-    if len(template_params) > 0 or specialization:
+    if len(template_params) > 0 or is_template_specialization:
         render_template_abs(template_params, f)
     f.write(f"struct {name}")
     with semicolon(f):
@@ -160,9 +160,10 @@ def render_function_declaration(
     name: str,
     args: Sequence[str],
     is_const: bool = False,
+    is_template_specialization: bool = False,
     f: TextIO,
 ) -> None:
-    if len(template_params) > 0:
+    if len(template_params) > 0 or is_template_specialization:
         render_template_abs(template_params, f)
     if is_static:
         f.write("static ")
@@ -188,10 +189,10 @@ def render_function_definition(
     args: Sequence[str],
     is_const: bool = False,
     initializer_list: Sequence[str] = tuple(),
-    template_specialization: bool = False,
+    is_template_specialization: bool = False,
     f: TextIO,
 ) -> Iterator[None]:
-    if len(template_params) > 0 or template_specialization:
+    if len(template_params) > 0 or is_template_specialization:
         render_template_abs(template_params, f)
     if return_type is not None:
         f.write(f"{return_type} ")

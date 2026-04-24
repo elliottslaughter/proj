@@ -1,0 +1,21 @@
+namespace = "FlexFlow"
+name = "VariantIndirect"
+type = "variant"
+features = [
+  "eq",
+  "ord",
+  "hash",
+  "json",
+  "fmt",
+]
+
+includes = [
+]
+
+[[values]]
+name = "num"
+type = "int"
+
+[[fields]]
+name = "nested"
+type = "::FlexFlow::VariantIndirect"

@@ -354,23 +354,13 @@ def test_render_indirect_variant_header() -> None:
     };
 
     template <>
-    bool MyVariant::has<type_b>() const {
-      return std::holds_alternative<std::shared_ptr<type_b>>(this->raw_variant);
-    }
+    bool MyVariant::has<type_b>() const;
 
     template <>
-    type_b const &MyVariant::get<type_b>() const {
-      bool holds_expected = std::holds_alternative<std::shared_ptr<type_b>>(this->raw_variant);
-      ASSERT(holds_expected);
-      return *std::get<std::shared_ptr<type_b>>(this->raw_variant);
-    }
+    type_b const &MyVariant::get<type_b>() const;
 
     template <>
-    type_b &MyVariant::get<type_b>() {
-      bool holds_expected = std::holds_alternative<std::shared_ptr<type_b>>(this->raw_variant);
-      ASSERT(holds_expected);
-      return *std::get<std::shared_ptr<type_b>>(this->raw_variant);
-    }
+    type_b &MyVariant::get<type_b>();
 
     } // namespace Example
     '''
@@ -454,6 +444,25 @@ def test_render_indirect_variant_source() -> None:
 
     bool MyVariant::is_b() const {
       return std::holds_alternative<std::shared_ptr<type_b>>(this->raw_variant);
+    }
+
+    template <>
+    bool MyVariant::has<type_b>() const {
+      return std::holds_alternative<std::shared_ptr<type_b>>(this->raw_variant);
+    }
+
+    template <>
+    type_b const &MyVariant::get<type_b>() const {
+      bool holds_expected = std::holds_alternative<std::shared_ptr<type_b>>(this->raw_variant);
+      ASSERT(holds_expected);
+      return *std::get<std::shared_ptr<type_b>>(this->raw_variant);
+    }
+
+    template <>
+    type_b &MyVariant::get<type_b>() {
+      bool holds_expected = std::holds_alternative<std::shared_ptr<type_b>>(this->raw_variant);
+      ASSERT(holds_expected);
+      return *std::get<std::shared_ptr<type_b>>(this->raw_variant);
     }
 
     } // namespace Example
