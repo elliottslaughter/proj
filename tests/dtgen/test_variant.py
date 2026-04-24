@@ -1,3 +1,4 @@
+import pytest
 from proj.dtgen.variant.render import (
   render_header,
   render_source,
@@ -5,7 +6,8 @@ from proj.dtgen.variant.render import (
 from proj.dtgen.variant.spec import (
   VariantSpec,
   ValueSpec,
-  Feature
+  Feature,
+  parse_variant_spec,
 )
 from proj.includes import (
     IncludeSpec,
@@ -15,7 +17,7 @@ import io
 import re
 import itertools
 from pathlib import PurePath
-
+import proj.toml as toml
 
 def cpp_tokenize(s):
     chunks = s.split()
@@ -24,6 +26,145 @@ def cpp_tokenize(s):
     )
 
     return [x for x in split if len(x) > 0]
+
+def test_parse_variant_spec_basic() -> None:
+    INPUT = toml.loads(
+        '''
+        namespace = "FlexFlow"
+        name = "MyVariant"
+        features = [
+          "eq",
+          "ord",
+          "hash",
+          "json",
+          "fmt",
+        ]
+
+        includes = [
+          "<string>",
+        ]
+
+        [[values]]
+        type = "int"
+        key = "num"
+
+        [[values]]
+        type = "std::string"
+        key = "str"
+        '''
+    )
+
+    result = parse_variant_spec(INPUT)
+    correct = VariantSpec(
+        includes=[
+            IncludeSpec(PurePath('string'), system=True),
+        ],
+        src_includes=[],
+        post_includes=[],
+        fwd_decls=(),
+        namespace='FlexFlow',
+        template_params=(),
+        name='MyVariant',
+        values=[
+            ValueSpec(
+                type_='int',
+                docstring=None,
+                _key='num',
+                _json_key=None,
+                _fmt_key=None,
+                _indirect=None,
+            ),
+            ValueSpec(
+                type_='std::string',
+                docstring=None,
+                _key='str',
+                _json_key=None,
+                _fmt_key=None,
+                _indirect=None,
+            ),
+        ],
+        features=frozenset([
+            Feature.EQ,
+            Feature.ORD,
+            Feature.HASH,
+            Feature.JSON,
+            Feature.FMT,
+        ]),
+        explicit_constructors=True,
+        docstring=None,
+    )
+
+    assert result == correct
+
+def test_parse_variant_spec_raises_on_invalid_key() -> None:
+    INPUT = toml.loads(
+        '''
+        namespace = "FlexFlow"
+        name = "MyVariant"
+        features = [
+          "eq",
+          "ord",
+          "hash",
+          "json",
+          "fmt",
+        ]
+
+        includes = [
+          "<string>",
+        ]
+
+        abc = []
+        def = []
+
+        [[values]]
+        type = "int"
+        key = "num"
+
+        [[values]]
+        type = "std::string"
+        key = "str"
+        '''
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        parse_variant_spec(INPUT)
+
+    assert "abc" in str(excinfo.value)
+    assert "def" in str(excinfo.value)
+
+def test_parse_variant_spec_raises_on_value_key() -> None:
+    INPUT = toml.loads(
+        '''
+        namespace = "FlexFlow"
+        name = "MyVariant"
+        features = [
+          "eq",
+          "ord",
+          "hash",
+          "json",
+          "fmt",
+        ]
+
+        includes = [
+          "<string>",
+        ]
+
+        [[values]]
+        type = "int"
+        name = "num"
+        abc = "1"
+
+        [[values]]
+        type = "std::string"
+        key = "str"
+        '''
+    )
+
+    with pytest.raises(ValueError) as excinfo:
+        parse_variant_spec(INPUT)
+
+    assert "name" in str(excinfo.value)
+    assert "abc" in str(excinfo.value)
 
 def test_cpp_tokenize() -> None:
     EXAMPLE = 'std::variant<type_a, type_b> raw_variant;};}// namespace Example'

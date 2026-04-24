@@ -198,7 +198,7 @@ def generate_header_contents(
         f.write("\n")
         f.write(f"#endif // {ifndef}\n")
         return f.getvalue()
- 
+
 def generate_header(
     file_tree: MutableFileTreeWithMtime,
     spec: Union[StructSpec, EnumSpec, VariantSpec],
@@ -220,7 +220,7 @@ def generate_header(
 
     if not (force or needs_generate_to_path(
             file_tree=file_tree,
-            spec_path=spec_repo_rel.path, 
+            spec_path=spec_repo_rel.path,
             out=out_repo_rel.path)):
         _l.debug(
             f"No generation needed for {spec_repo_rel.path} -> {out_repo_rel.path}"
@@ -296,13 +296,13 @@ def generate_source(
         return None
 
     _l.info(f"Regenerating {spec_repo_rel.path} -> {out_repo_rel.path}")
-    
+
     spec_hash = get_file_hash(file_tree, spec_repo_rel.path)
     assert spec_hash is not None
 
     file_tree.mkdir(out_repo_rel.path.parent, exist_ok=True, parents=True)
     contents = generate_source_contents(
-        spec=spec, 
+        spec=spec,
         file_group=file_group,
         spec_hash=spec_hash,
         extension_config=extension_config,
@@ -330,11 +330,13 @@ def load_spec_file(p: PurePath, repo_file_tree: FileTree) -> Union[StructSpec, E
             raise RuntimeError()
     except KeyError as e:
         raise RuntimeError(f"Failed to parse spec {p}") from e
+    except ValueError as e:
+        raise RuntimeError(f"Failed to parse spec {p}") from e
 
 def generate_files(
-    file_group: FileGroup, 
-    force: bool, 
-    extension_config: ExtensionConfig, 
+    file_group: FileGroup,
+    force: bool,
+    extension_config: ExtensionConfig,
     ifndef_base: str,
     file_tree: MutableFileTreeWithMtime,
 ) -> List[PurePath]:
@@ -346,11 +348,11 @@ def generate_files(
 
     _l.debug('Generating header file for %s', file_group)
     header_path = generate_header(
-        file_tree, 
-        spec=spec, 
-        file_group=file_group, 
-        force=force, 
-        extension_config=extension_config, 
+        file_tree,
+        spec=spec,
+        file_group=file_group,
+        force=force,
+        extension_config=extension_config,
         ifndef_base=ifndef_base,
     )
 

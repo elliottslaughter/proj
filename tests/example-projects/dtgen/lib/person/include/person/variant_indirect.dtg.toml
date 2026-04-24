@@ -13,9 +13,9 @@ includes = [
 ]
 
 [[values]]
-name = "num"
+key = "num"
 type = "int"
 
-[[fields]]
-name = "nested"
+[[values]]
+key = "nested"
 type = "::FlexFlow::VariantIndirect"

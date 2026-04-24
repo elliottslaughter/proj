@@ -1,5 +1,9 @@
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import (
+    Enum,
+    auto,
+    StrEnum,
+)
 from typing import (
     FrozenSet,
     Optional,
@@ -26,7 +30,6 @@ class Feature(Enum):
 
     def json(self) -> Json:
         return self.name
-
 
 @dataclass(frozen=True)
 class ValueSpec:
@@ -126,36 +129,66 @@ def parse_feature(raw: str) -> Feature:
     else:
         raise ValueError(f"Unknown feature: {raw}")
 
+class ValueSpecKeys(StrEnum):
+    TYPE = 'type'
+    DOCSTRING = 'docstring'
+    KEY = 'key'
+    JSON_KEY = 'json_key'
+    FMT_KEY = 'fmt_key'
+    INDIRECT = 'indirect'
 
 def parse_value_spec(raw: Mapping[str, Any]) -> ValueSpec:
+    invalid_keys = set(raw.keys()) - set(ValueSpecKeys)
+    if len(invalid_keys) > 0:
+        invalid_keys_str = ', '.join(map(repr, invalid_keys))
+        raise ValueError(f'Unexpected keys encountered: {invalid_keys_str}')
+
     return ValueSpec(
-        type_=raw["type"],
-        docstring=raw.get("docstring", None),
-        _key=raw.get("key", None),
-        _json_key=raw.get("json_key", None),
-        _fmt_key=raw.get("fmt_key", None),
-        _indirect=raw.get("indirect", None),
+        type_=raw[ValueSpecKeys.TYPE],
+        docstring=raw.get(ValueSpecKeys.DOCSTRING, None),
+        _key=raw.get(ValueSpecKeys.KEY, None),
+        _json_key=raw.get(ValueSpecKeys.JSON_KEY, None),
+        _fmt_key=raw.get(ValueSpecKeys.FMT_KEY, None),
+        _indirect=raw.get(ValueSpecKeys.INDIRECT, None),
     )
 
 
+class VariantSpecKeys(StrEnum):
+    NAMESPACE = 'namespace'
+    INCLUDES = 'includes'
+    SRC_INCLUDES = 'src_includes'
+    POST_INCLUDES = 'post_includes'
+    FWD_DECLS = 'fwd_decls'
+    EXPLICIT_CONSTRUCTORS = 'explicit_constructors'
+    TEMPLATE_PARAMS = 'template_params'
+    NAME = 'name'
+    VALUES = 'values'
+    FEATURES = 'features'
+    DOCSTRING = 'docstring'
+
 def parse_variant_spec(raw: Mapping[str, Any]) -> VariantSpec:
+    invalid_keys = set(raw.keys()) - set(VariantSpecKeys)
+    if len(invalid_keys) > 0:
+        invalid_keys_str = ', '.join(map(repr, invalid_keys))
+        raise ValueError(f'Unexpected keys encountered: {invalid_keys_str}')
+
     return VariantSpec(
-        namespace=raw.get("namespace", None),
-        includes=[parse_include_spec(include) for include in raw.get("includes", ())],
+        namespace=raw.get(VariantSpecKeys.NAMESPACE, None),
+        includes=[parse_include_spec(include) for include in raw.get(VariantSpecKeys.INCLUDES, ())],
         src_includes=[
-            parse_include_spec(include) for include in raw.get("src_includes", ())
+            parse_include_spec(include) for include in raw.get(VariantSpecKeys.SRC_INCLUDES, ())
         ],
         post_includes=[
             parse_include_spec(post_include)
-            for post_include in raw.get("post_includes", ())
+            for post_include in raw.get(VariantSpecKeys.POST_INCLUDES, ())
         ],
-        fwd_decls=raw.get("fwd_decls", ()),
-        explicit_constructors=raw.get("explicit_constructors", True),
-        template_params=raw.get("template_params", ()),
-        name=raw["name"],
-        values=[parse_value_spec(value) for value in raw["values"]],
-        features=frozenset([parse_feature(feature) for feature in raw["features"]]),
-        docstring=raw.get("docstring", None),
+        fwd_decls=raw.get(VariantSpecKeys.FWD_DECLS, ()),
+        explicit_constructors=raw.get(VariantSpecKeys.EXPLICIT_CONSTRUCTORS, True),
+        template_params=raw.get(VariantSpecKeys.TEMPLATE_PARAMS, ()),
+        name=raw[VariantSpecKeys.NAME],
+        values=[parse_value_spec(value) for value in raw[VariantSpecKeys.VALUES]],
+        features=frozenset([parse_feature(feature) for feature in raw[VariantSpecKeys.FEATURES]]),
+        docstring=raw.get(VariantSpecKeys.DOCSTRING, None),
     )
 
 
@@ -175,4 +208,6 @@ def load_spec(path: Path) -> VariantSpec:
             )
         return spec
     except KeyError as e:
+        raise RuntimeError(f"Failed to parse spec {path}") from e
+    except ValueError as e:
         raise RuntimeError(f"Failed to parse spec {path}") from e
