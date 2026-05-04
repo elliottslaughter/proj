@@ -15,6 +15,9 @@ from .includes import (
     get_include_path,
 )
 from .ifndef import get_correct_ifndef_for_path
+from typing import (
+    Dict,
+)
 
 @dataclass(frozen=True, order=True)
 class FileGroupInfo:
@@ -29,7 +32,7 @@ class FileGroupInfo:
     generated_include: PurePath
     include: PurePath
 
-    def json(self) -> Json:
+    def json(self) -> Dict[str, Json]:
         return {
             "public_header": str(self.public_header),
             "generated_header": str(self.generated_header),

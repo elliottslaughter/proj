@@ -108,7 +108,7 @@ from .parse_project import find_repo, parse_repo_path, parse_file_path
 from .utils import map_optional
 from .file_group_info import get_file_group_info
 from .paths import (
-    RepoRelPath, 
+    RepoRelPath,
     File,
 )
 from .unparse_project import get_repo_rel_path
@@ -175,7 +175,11 @@ def main_query_path(args: MainQueryPathArgs) -> int:
     file_group_info = get_file_group_info(
         file.group, config.ifndef_name, config.extension_config
     )
-    json.dump(file_group_info.json(), sort_keys=True, indent=2, fp=sys.stdout)
+
+    output = file_group_info.json()
+    output['role'] = file.role.shortname
+
+    json.dump(output, sort_keys=True, indent=2, fp=sys.stdout)
     return STATUS_OK
 
 
@@ -738,7 +742,7 @@ def main_move(args: MainMoveArgs) -> int:
     repo_file_tree = load_filesystem_for_repo(config.repo)
 
     assert args.src.is_file()
-    perform_file_group_move_with_include_and_ifndef_update( 
+    perform_file_group_move_with_include_and_ifndef_update(
         repo_file_tree=repo_file_tree,
         src=src_repo_rel,
         dst=dst_repo_rel,
@@ -769,7 +773,7 @@ def main_rm(args: MainRmArgs) -> int:
     repo_file_tree = load_filesystem_for_repo(config.repo)
 
     assert args.target.is_file()
-    rm_file_group( 
+    rm_file_group(
         repo_path_tree=repo_file_tree,
         target=target_repo_rel,
         extension_config=config.extension_config,
@@ -796,7 +800,7 @@ def main_find_include(args: MainFindIncludeArgs) -> int:
     for file in found:
         repo_rel_path = get_repo_rel_path(file, config.extension_config)
         print(str(repo_rel_path.path))
-    
+
     if len(found) == 0:
         fail_with_error('No matches found.')
 
@@ -828,8 +832,8 @@ def main_lint(args: MainLintArgs) -> int:
     run_linter(
         repo=config.repo,
         repo_path_tree=repo_tree,
-        extension_config=config.extension_config, 
-        files=files, 
+        extension_config=config.extension_config,
+        files=files,
         profile_checks=args.profile_checks
     )
     return STATUS_OK
@@ -924,10 +928,10 @@ def main_doxygen(args: MainDoxygenArgs) -> int:
         stdout = None
 
     did_succeed = run_doxygen(
-        config=config, 
-        log_level=args.verbosity, 
-        stdout=stdout, 
-        stderr=stderr, 
+        config=config,
+        log_level=args.verbosity,
+        stdout=stdout,
+        stderr=stderr,
         env=env,
     )
 
@@ -949,9 +953,9 @@ def make_parser() -> argparse.ArgumentParser:
 
     root_fs = load_root_filesystem()
     repo = find_repo(Path.cwd(), root_fs)
-    
+
     config = map_optional(repo, lambda r: load_repo_config(r, root_fs))
-    
+
     def set_main_signature(
         parser: argparse.ArgumentParser, func: Callable[[T], int], args_type: Type[T]
     ) -> None:

@@ -696,7 +696,11 @@ def test_query_path_for_header() -> None:
         ]))
 
         out = json.loads(result.stdout)
-        assert out == LIB1_QUERY_JSON_OUTPUT
+        correct = {
+            'role': 'hdr',
+            **LIB1_QUERY_JSON_OUTPUT,
+        }
+        assert out == correct
 
 @pytest.mark.e2e
 @pytest.mark.slow
@@ -708,7 +712,11 @@ def test_query_path_for_src() -> None:
         ]))
 
         out = json.loads(result.stdout)
-        assert out == LIB1_QUERY_JSON_OUTPUT
+        correct = {
+            'role': 'src',
+            **LIB1_QUERY_JSON_OUTPUT,
+        }
+        assert out == correct
 
 @pytest.mark.e2e
 @pytest.mark.slow
@@ -720,8 +728,12 @@ def test_query_path_for_test_src() -> None:
         ]))
 
         out = json.loads(result.stdout)
-        assert out == LIB1_QUERY_JSON_OUTPUT
-    
+        correct = {
+            'role': 'tst',
+            **LIB1_QUERY_JSON_OUTPUT,
+        }
+        assert out == correct
+
 LIB1_TOML_QUERY_JSON_OUTPUT = {
     'public_header': 'lib/lib1/include/lib1/example_struct.h',
     'generated_header': 'lib/lib1/include/lib1/example_struct.dtg.h',
@@ -745,8 +757,12 @@ def test_query_path_for_test_toml() -> None:
         ]))
 
         out = json.loads(result.stdout)
+        correct = {
+            'role': 'toml',
+            **LIB1_TOML_QUERY_JSON_OUTPUT,
+        }
 
-        assert out == LIB1_TOML_QUERY_JSON_OUTPUT
+        assert out == correct
 
 @pytest.mark.e2e
 @pytest.mark.slow
@@ -758,8 +774,12 @@ def test_query_path_for_test_toml_generated_header() -> None:
         ]))
 
         out = json.loads(result.stdout)
+        correct = {
+            'role': 'genhdr',
+            **LIB1_TOML_QUERY_JSON_OUTPUT,
+        }
 
-        assert out == LIB1_TOML_QUERY_JSON_OUTPUT
+        assert out == correct
 
 @pytest.mark.e2e
 @pytest.mark.slow
@@ -771,8 +791,12 @@ def test_query_path_for_test_toml_generated_source() -> None:
         ]))
 
         out = json.loads(result.stdout)
+        correct = {
+            'role': 'gensrc',
+            **LIB1_TOML_QUERY_JSON_OUTPUT,
+        }
 
-        assert out == LIB1_TOML_QUERY_JSON_OUTPUT
+        assert out == correct
 
 @pytest.mark.e2e
 @pytest.mark.slow
@@ -796,6 +820,7 @@ def test_query_path_for_test_toml_variant() -> None:
             'ifndef': '_TEST_PROJECT_1_LIB_LIB1_INCLUDE_LIB1_EXAMPLE_VARIANT_H',
             'generated_include': 'lib1/example_variant.dtg.h',
             'include': 'lib1/example_variant.h',
+            'role': 'hdr',
         }
 
 @pytest.mark.e2e
@@ -820,6 +845,7 @@ def test_query_path_for_test_toml_enum() -> None:
             'ifndef': '_TEST_PROJECT_1_LIB_LIB1_INCLUDE_LIB1_EXAMPLE_ENUM_H',
             'generated_include': 'lib1/example_enum.dtg.h',
             'include': 'lib1/example_enum.h',
+            'role': 'hdr',
         }
 
 @pytest.mark.e2e
@@ -1144,7 +1170,7 @@ def test_check_include() -> None:
             'check',
             'include',
         ])
-        
+
         lib2_src_path = d / 'lib/lib2/src/lib2/lib2.cc'
         lib2_src_contents = lib2_src_path.read_text()
         modified = lib2_src_contents.replace('#include "lib2/lib2.h"', '#include "lib2/lib3.h"')
