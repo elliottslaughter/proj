@@ -7,6 +7,7 @@ from typing import (
     Iterator,
     Iterable,
     Mapping,
+    List,
 )
 from proj.targets import (
     BuildTarget,
@@ -1237,7 +1238,27 @@ def test_find_include() -> None:
             'lib1/something_that_does_not_exist.h',
         ])
 
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_tag_cmd() -> None:
+    with project_instance() as d:
+        TAG_FILE_PATH = d / 'tags'
+        assert not TAG_FILE_PATH.exists()
 
+        check_cmd_succeeds(d, [
+            'tag',
+        ])
+
+        assert TAG_FILE_PATH.is_file()
+        contents = TAG_FILE_PATH.read_text()
+        assert 'ExampleEnum' in contents
+        assert 'lib/lib1/include/lib1/example_enum.dtg.toml' in contents
+
+        def is_sorted(l: List[str]) -> bool:
+            return all(a <= b for a, b in zip(l, l[1:]))
+
+        lines = contents.splitlines()
+        assert is_sorted(lines)
 
 @pytest.mark.e2e
 @pytest.mark.slow

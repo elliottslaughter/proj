@@ -119,6 +119,7 @@ from .includes import (
 from .doxygen import (
     run_doxygen,
 )
+from .tags import generate_tag_file
 
 _l = logging.getLogger(name="proj")
 
@@ -840,6 +841,24 @@ def main_lint(args: MainLintArgs) -> int:
 
 
 @dataclass(frozen=True)
+class MainTagArgs:
+    path: Path
+    verbosity: int
+
+
+def main_tag(args: MainTagArgs) -> int:
+    fs = load_root_filesystem()
+    repo = find_repo(args.path, fs)
+    assert repo is not None
+    config = load_repo_config(repo, fs)
+    assert repo is not None
+
+    generate_tag_file(config)
+
+    return STATUS_OK
+
+
+@dataclass(frozen=True)
 class MainFormatArgs:
     path: Path
     files: Sequence[Path]
@@ -1110,6 +1129,10 @@ def make_parser() -> argparse.ArgumentParser:
     lint_p.add_argument("--profile-checks", action="store_true")
     lint_p.add_argument("files", nargs="*", type=Path)
     add_verbosity_args(lint_p)
+
+    tag_p = subparsers.add_parser("tag")
+    set_main_signature(tag_p, main_tag, MainTagArgs)
+    add_verbosity_args(tag_p)
 
     doxygen_p = subparsers.add_parser("doxygen")
     set_main_signature(doxygen_p, main_doxygen, MainDoxygenArgs)

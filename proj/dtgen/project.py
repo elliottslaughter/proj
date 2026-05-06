@@ -7,6 +7,7 @@ from typing import (
     Optional,
     Union,
     List,
+    Dict,
 )
 from pathlib import (
     Path,
@@ -90,6 +91,18 @@ def find_dtgen_spec_in_repo(path_tree: PathTree, extension_config: ExtensionConf
             parsed = parse_file_path(RepoRelPath(found), extension_config)
             assert parsed is not None, found
             result.append(parsed)
+    return result
+
+def load_dtgen_specs_in_repo(
+    file_tree: FileTree,
+    extension_config: ExtensionConfig,
+) -> Dict[File, Union[StructSpec, EnumSpec, VariantSpec]]:
+
+    result = {}
+    for found_file in find_dtgen_spec_in_repo(file_tree, extension_config):
+        spec_path = get_repo_rel_path(found_file, extension_config)
+
+        result[found_file] = load_spec_file(spec_path.path, file_tree)
     return result
 
 

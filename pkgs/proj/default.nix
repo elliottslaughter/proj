@@ -29,6 +29,7 @@
 , lcov
 , gdb
 , pytest-xdist
+, universal-ctags
 # TODO use these if we ever update nixpkgs
 # , writableTmpDirAsHomeHook
 # , addBinAsPathHook
@@ -49,6 +50,7 @@ let
     ninja
     lcov
     doxygen
+    universal-ctags
   ];
 in
 buildPythonApplication {
