@@ -11,7 +11,10 @@ from pathlib import Path
 from enum import StrEnum
 import sys
 import shutil
-from .config_file import ProjectConfig
+from .config_file import (
+    ProjectConfig,
+    BuildTool,
+)
 from . import fix_compile_commands
 import re
 from proj.targets import (
@@ -65,8 +68,15 @@ def get_targets_list(names: ConfiguredNames, build_dir: Path) -> Iterator[BuildT
             yield parsed
 
 
-def render_args(arg_map: Mapping[str, str], trace: bool) -> List[str]:
-    cmake_args = ["-G", "Ninja"]
+def render_args(arg_map: Mapping[str, str], trace: bool, build_tool: BuildTool) -> List[str]:
+    cmake_args: List[str]
+    if build_tool == BuildTool.NINJA:
+        cmake_args = ["-G", "Ninja"]
+    elif build_tool == BuildTool.MAKE:
+        cmake_args = []
+    else:
+        raise ValueError(f'Unkown build tool {build_tool!r}')
+
     cmake_args += [f"-D{k}={v}" for k, v in arg_map.items()]
     cmake_args += shlex.split(os.environ.get("CMAKE_FLAGS", ""))
     if trace:
@@ -108,7 +118,7 @@ def cmake(config: ProjectConfig, mode: BuildMode, fast: bool, trace: bool) -> No
         shutil.rmtree(build_dir)
     build_dir.mkdir(exist_ok=True, parents=True)
 
-    rendered_args = render_args(arg_map, trace=trace)
+    rendered_args = render_args(arg_map, trace=trace, build_tool=config.build_tool)
 
     run_cmake(rendered_args, require_shell=config.cmake_require_shell, cwd=build_dir)
 

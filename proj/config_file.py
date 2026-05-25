@@ -86,6 +86,9 @@ def get_test_target(
 class BinConfig:
     requires_cuda: bool
 
+class BuildTool(StrEnum):
+    MAKE = 'make'
+    NINJA = 'ninja'
 
 @dataclass(frozen=True)
 class ProjectConfig:
@@ -108,6 +111,7 @@ class ProjectConfig:
     _test_header_path: Optional[Path] = None
     _cuda_launch_cmd: Optional[Tuple[str, ...]] = None
     _layout_ignore_paths: Optional[Tuple[Path, ...]] = None
+    _build_tool: Optional[BuildTool] = None
 
     @property
     def repo(self) -> Repo:
@@ -119,6 +123,13 @@ class ProjectConfig:
             return False
         else:
             return self._doxygen
+
+    @property
+    def build_tool(self) -> BuildTool:
+        if self._build_tool is None:
+            return BuildTool.NINJA
+        else:
+            return self._build_tool
 
     @property
     def debug_build_dir(self) -> Path:
@@ -529,6 +540,10 @@ def _load_targets(m: object) -> Map[str, Union[LibConfig, BinConfig]]:
     )
 
 
+
+def load_build_tool(x: object) -> Optional[BuildTool]:
+    return map_optional(map_optional(x, require_str), lambda s: BuildTool(s))
+
 def load_str_tuple(x: object) -> Optional[Tuple[str, ...]]:
     return map_optional(
         map_optional(x, lambda l: require_list_of(l, require_str)), lambda ll: tuple(ll)
@@ -575,6 +590,7 @@ class ConfigKey(StrEnum):
     CUDA_LAUNCH_CMD = "cuda_launch_cmd"
     LAYOUT_IGNORE_PATHS = "layout_ignore_paths"
     DOXYGEN = "doxygen"
+    BUILD_TOOL = "build_tool"
 
 def load_parsed_config(repo: Repo, raw: object) -> ProjectConfig:
     _l.debug("Loading parsed config: %s", raw)
@@ -609,6 +625,7 @@ def load_parsed_config(repo: Repo, raw: object) -> ProjectConfig:
         _test_header_path=load_path(raw.get(ConfigKey.TEST_HEADER_PATH)),
         _cuda_launch_cmd=load_str_tuple(raw.get(ConfigKey.CUDA_LAUNCH_CMD)),
         _layout_ignore_paths=load_path_tuple(raw.get(ConfigKey.LAYOUT_IGNORE_PATHS)),
+        _build_tool=load_build_tool(raw.get(ConfigKey.BUILD_TOOL)),
     )
 
 

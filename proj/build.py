@@ -1,4 +1,7 @@
-from .config_file import ProjectConfig
+from .config_file import (
+    ProjectConfig,
+    BuildTool,
+)
 from typing import (
     Iterable,
 )
@@ -32,9 +35,17 @@ def build_targets(
     if len(_targets) == 0:
         fail_with_error("No build targets selected")
 
+    cmd_bin: str
+    if config.build_tool == BuildTool.MAKE:
+        cmd_bin = 'make'
+    elif config.build_tool == BuildTool.NINJA:
+        cmd_bin = 'ninja'
+    else:
+        raise ValueError(f'Unrecognized build tool {config.build_tool!r}')
+
     result = subprocess.run(
         [
-            "ninja",
+            cmd_bin,
             "-C",
             str(build_dir),
             "-j",

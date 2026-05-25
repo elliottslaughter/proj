@@ -79,6 +79,7 @@
               gdb
               doxygen
               ninja
+              universal-ctags
             ])
             (with pkgs.python3Packages; [
               pip
