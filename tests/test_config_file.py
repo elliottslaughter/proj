@@ -14,7 +14,6 @@ from typing import (
 )
 from pathlib import Path, PurePath
 import dataclasses
-from immutables import Map
 from proj.paths import Repo
 
 def get_example_config() -> Dict[str, Any]:
@@ -44,14 +43,14 @@ REPO = Repo(PurePath('/config/root'))
 LOADED_CONFIG = ProjectConfig(
     project_name='test',
     base=Path(REPO.path),
-    _targets=Map({}),
+    _targets={},
     _default_build_targets=tuple(),
     _default_test_targets=tuple(),
     _default_benchmark_targets=tuple(),
     _testsuite_macro='MY_MACRO',
     _ifndef_name='MY_IFNDEF',
     _namespace_name='MyNamespace',
-    _cmake_flags_extra=Map({}),
+    _cmake_flags_extra={},
     _cmake_require_shell=False,
     _header_extension='.hhh',
     _fix_compile_commands=False,

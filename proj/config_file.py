@@ -7,7 +7,6 @@ from typing import (
     Union,
     FrozenSet,
 )
-from immutables import Map
 import string
 import re
 import proj.toml as toml
@@ -529,15 +528,13 @@ def resolve_bin_target(
         return CudaBinTarget(t)
 
 
-def _load_targets(m: object) -> Map[str, Union[LibConfig, BinConfig]]:
+def _load_targets(m: object) -> Mapping[str, Union[LibConfig, BinConfig]]:
     assert isinstance(m, dict)
 
-    return Map(
-        {
-            target_name: _load_target_config(target_config)
-            for target_name, target_config in m.items()
-        }
-    )
+    return {
+        target_name: _load_target_config(target_config)
+        for target_name, target_config in m.items()
+    }
 
 
 
@@ -562,7 +559,7 @@ def load_path_tuple(x: object) -> Optional[Tuple[Path, ...]]:
     list_ = require_list_of(x, require_str)
     return tuple(Path(l) for l in list_)
 
-def load_cmake_flags(x: object) -> Optional[Map[str, str]]:
+def load_cmake_flags(x: object) -> Optional[Mapping[str, str]]:
     return map_optional(x, lambda y: require_dict_of(y, require_str, require_str))
 
 

@@ -2,7 +2,6 @@
 , pytestCheckHook
 , typing-extensions
 , enlighten
-, immutables
 , setuptools
 , pytest-skip-slow
 , pytest
@@ -63,7 +62,6 @@ buildPythonApplication {
   propagatedBuildInputs = [
     typing-extensions
     enlighten
-    immutables
   ] ++ bins;
 
   build-system = [
