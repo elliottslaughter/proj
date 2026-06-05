@@ -33,10 +33,27 @@
         "type": "indirect"
       }
     },
+    "python38-nixpkgs": {
+      "locked": {
+        "lastModified": 1645131486,
+        "narHash": "sha256-AuWJe0TiqHD6L7Vzcar4QOblMGubKHsuVs3YFMCRYl0=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "7592790b9e02f7f99ddcb1bd33fd44ff8df6a9a7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "7592790b9e02f7f99ddcb1bd33fd44ff8df6a9a7",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "python38-nixpkgs": "python38-nixpkgs"
       }
     },
     "systems": {

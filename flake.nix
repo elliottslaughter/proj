@@ -6,11 +6,17 @@
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-23.11";
     flake-utils.url = "github:numtide/flake-utils";
+    python38-nixpkgs.url = "github:nixos/nixpkgs/7592790b9e02f7f99ddcb1bd33fd44ff8df6a9a7";
   };
 
-  outputs = { self, nixpkgs, flake-utils, ... }: flake-utils.lib.eachDefaultSystem (system:
+  outputs = { self, nixpkgs, flake-utils, python38-nixpkgs, ... }: flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+      };
+
+      python38-pkgs = import python38-nixpkgs {
         inherit system;
         config.allowUnfree = true;
       };
@@ -81,19 +87,15 @@
               ninja
               universal-ctags
             ])
+            (with python38-pkgs.python38Packages; [
+              pip
+            ])
             (with pkgs.python3Packages; [
               pip
               ipython
-              ipdb
+              # ipdb
               mypy
-              python-lsp-server
-              pylsp-mypy
-              python-lsp-ruff
-              black
-              toml
-              pytest
-              pytest-xdist
-              nclib
+              tox
             ])
             (with self.packages.${system}; [
               rapidcheckFull

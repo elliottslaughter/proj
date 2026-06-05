@@ -57,7 +57,7 @@ from proj.trees import (
     MutableFileTreeWithMtime,
 )
 import io
-import tomllib
+import proj.toml as toml
 from ..unparse_project import (
     get_repo_rel_path,
 )
@@ -68,6 +68,7 @@ from proj.includes import (
     get_generated_include_path,
 )
 from proj.ifndef import get_correct_ifndef_for_path
+from proj.utils import is_relative_to
 
 _l = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ def find_dtgen_spec_in_repo(path_tree: PathTree, extension_config: ExtensionConf
 
     def is_blacklisted(p: PurePath) -> bool:
         for blacklisted in blacklist:
-            if found.is_relative_to(blacklisted):
+            if is_relative_to(found, blacklisted):
                 return True
         return False
 
@@ -325,8 +326,8 @@ def generate_source(
 
 def load_spec_file(p: PurePath, repo_file_tree: FileTree) -> Union[StructSpec, EnumSpec, VariantSpec]:
     try:
-        raw = tomllib.loads(repo_file_tree.get_file_contents(p))
-    except tomllib.TOMLDecodeError as e:
+        raw = toml.loads(repo_file_tree.get_file_contents(p))
+    except toml.TOMLDecodeError as e:
         raise RuntimeError(f"Failed to load spec {p}") from e
 
     try:

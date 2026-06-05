@@ -42,9 +42,7 @@ from .json import (
     require_list_of,
     require_dict_of,
 )
-from enum import (
-    StrEnum,
-)
+from proj.strenum import StrEnum
 from .paths import (
     Repo,
 )

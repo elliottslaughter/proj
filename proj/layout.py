@@ -13,6 +13,7 @@ from proj.trees import (
     IgnoreMask,
 )
 from typing import (
+    Union,
     Dict,
     Tuple,
     Set,
@@ -34,6 +35,7 @@ from collections import (
 )
 from .config_file import ExtensionConfig
 import logging
+from proj.utils import is_relative_to
 
 _l = logging.getLogger(__name__)
 
@@ -56,12 +58,12 @@ def _scan_component_for_files(
     component: Component,
     component_path_tree: PathTree,
     extension_config: ExtensionConfig,
-) -> Iterator[KnownFile | File | UnrecognizedFile]:
+) -> Iterator[Union[KnownFile, File, UnrecognizedFile]]:
     _l.info('Scanning component %s', component)
 
     def try_to_recognize(
         p: PurePath
-    ) -> KnownFile | File | UnrecognizedFile:
+    ) -> Union[KnownFile, File, UnrecognizedFile]:
         component_rel_path = ComponentRelPath(p, component)
 
         allowed_cmake_files = [
@@ -69,12 +71,12 @@ def _scan_component_for_files(
             PurePath('test/CMakeLists.txt'),
             PurePath('benchmark/CMakeLists.txt'),
         ]
-        
-        if (p.name == 'README.md' or 
+
+        if (p.name == 'README.md' or
             p.suffix in ['.dox'] or
-            p.is_relative_to(PurePath('test/src/internal')) or
-            p.is_relative_to(PurePath('benchmark/src/internal')) or
-            (p.is_relative_to(PurePath('test/src')) and p.name == 'test_e2e.cc') or
+            is_relative_to(p, PurePath('test/src/internal')) or
+            is_relative_to(p, PurePath('benchmark/src/internal')) or
+            (is_relative_to(p, PurePath('test/src')) and p.name == 'test_e2e.cc') or
             p in allowed_cmake_files
         ):
             return KnownFile(component_rel_path)
@@ -84,7 +86,7 @@ def _scan_component_for_files(
             return file
         else:
             return UnrecognizedFile(component_rel_path)
-    
+
     for file in map(try_to_recognize, component_path_tree.files()):
         _l.debug('Scanning component %s found file %s', component, file)
         yield file
@@ -93,7 +95,7 @@ def scan_component_for_files(
     component: Component,
     component_path_tree: PathTree,
     extension_config: ExtensionConfig,
-) -> Set[KnownFile | File | UnrecognizedFile]:
+) -> Set[Union[KnownFile, File, UnrecognizedFile]]:
     return set(_scan_component_for_files(component, component_path_tree, extension_config))
 
 def _scan_repo_for_components(
@@ -126,7 +128,7 @@ def scan_repo_for_components(
 def scan_repo_for_files(
     repo_path_tree: PathTree,
     extension_config: ExtensionConfig,
-) -> Iterator[KnownFile | File | UnrecognizedFile]:
+) -> Iterator[Union[KnownFile, File, UnrecognizedFile]]:
     for component, component_tree in scan_repo_for_components(repo_path_tree, extension_config):
         for file in scan_component_for_files(component, component_tree, extension_config):
             yield file
@@ -164,7 +166,7 @@ def run_layout_check(
     repo_path_tree: PathTree,
     extension_config: ExtensionConfig,
     ignore_paths: Iterable[RepoRelPath],
-) -> Iterator[IncompleteGroup | UnrecognizedFile]:
+) -> Iterator[Union[IncompleteGroup, UnrecognizedFile]]:
     _ignore_paths = list(ignore_paths)
     _l.debug("Layout check ignoring paths: %s", ignore_paths)
 

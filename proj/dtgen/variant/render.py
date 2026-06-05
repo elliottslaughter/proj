@@ -801,7 +801,7 @@ def render_impls(spec: VariantSpec, f: TextIO) -> None:
 
 
 def render_header(spec: VariantSpec, f: TextIO) -> None:
-    render_includes(infer_header_includes(spec), f)
+    render_includes(list(sorted(infer_header_includes(spec))), f)
     if len(spec.template_params) > 0:
         render_includes(infer_source_includes(spec), f)
 

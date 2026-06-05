@@ -193,13 +193,13 @@ def test_cpp_tokenize() -> None:
 
 def test_render_variant_header() -> None:
     CORRECT_HDR = '''
-    #include <libassert/assert.hpp>
-    #include <variant>
-    #include <fmt/format.h>
     #include <cstddef>
-    #include <type_traits>
-    #include <stdexcept>
+    #include <fmt/format.h>
+    #include <libassert/assert.hpp>
     #include <optional>
+    #include <stdexcept>
+    #include <type_traits>
+    #include <variant>
 
     namespace Example{
 
@@ -405,14 +405,14 @@ def test_render_variant_source() -> None:
 
 def test_render_indirect_variant_header() -> None:
     CORRECT_HDR = '''
-    #include <libassert/assert.hpp>
-    #include <variant>
-    #include <fmt/format.h>
     #include <cstddef>
-    #include <type_traits>
-    #include <stdexcept>
+    #include <fmt/format.h>
+    #include <libassert/assert.hpp>
     #include <memory>
     #include <optional>
+    #include <stdexcept>
+    #include <type_traits>
+    #include <variant>
 
     namespace Example {
 
@@ -648,13 +648,13 @@ def test_render_indirect_variant_source() -> None:
 
 def test_render_fwd_decl_variant_header() -> None:
     CORRECT_HDR = '''
-    #include <libassert/assert.hpp>
-    #include <variant>
-    #include <fmt/format.h>
     #include <cstddef>
-    #include <type_traits>
-    #include <stdexcept>
+    #include <fmt/format.h>
+    #include <libassert/assert.hpp>
     #include <optional>
+    #include <stdexcept>
+    #include <type_traits>
+    #include <variant>
 
     namespace Example{
 
@@ -779,13 +779,13 @@ def test_render_fwd_decl_variant_header() -> None:
 
 def test_render_post_include_variant_header() -> None:
     CORRECT_HDR = '''
-    #include <libassert/assert.hpp>
-    #include <variant>
-    #include <fmt/format.h>
     #include <cstddef>
-    #include <type_traits>
-    #include <stdexcept>
+    #include <fmt/format.h>
+    #include <libassert/assert.hpp>
     #include <optional>
+    #include <stdexcept>
+    #include <type_traits>
+    #include <variant>
 
     namespace Example{
 

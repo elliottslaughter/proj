@@ -39,9 +39,9 @@ def find_repo_files_for_linter(repo_path_tree: PathTree, extension_config: Exten
     ]
 
     def is_blacklisted(p: RepoRelPath) -> bool:
-        if not any(p.is_relative_to(whitelisted) for whitelisted in whitelist):
+        if not any(is_relative_to(p, whitelisted) for whitelisted in whitelist):
             return True
-        if any(p.is_relative_to(blacklisted) for blacklisted in blacklist):
+        if any(is_relative_to(p, blacklisted) for blacklisted in blacklist):
             return True
         if any(
             parent.name == "test" for parent in p.parents
@@ -61,7 +61,7 @@ def _run_clang_tidy(
     root: Path,
     config: ClangToolsConfig,
     args: Sequence[str],
-    files: Sequence[PathLike[str]],
+    files: Sequence['PathLike[str]'],
     use_default_config: bool = False,
     profile_checks: bool = False,
 ) -> SubprocessInvocation:
@@ -93,7 +93,7 @@ def run_linter(
     repo: Repo,
     repo_path_tree: PathTree,
     extension_config: ExtensionConfig,
-    files: Optional[Sequence[PathLike[str]]] = None,
+    files: Optional[Sequence['PathLike[str]']] = None,
     profile_checks: bool = False,
 ) -> None:
     if files is None:

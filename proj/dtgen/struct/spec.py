@@ -1,8 +1,8 @@
 from dataclasses import dataclass
+from proj.strenum import StrEnum
 from enum import (
-    Enum, 
+    Enum,
     auto,
-    StrEnum,
 )
 from typing import (
     Sequence,

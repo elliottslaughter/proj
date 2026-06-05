@@ -8,7 +8,7 @@ import os
 import shlex
 from . import subprocess_trace as subprocess
 from pathlib import Path
-from enum import StrEnum
+from proj.strenum import StrEnum
 import sys
 import shutil
 from .config_file import (

@@ -1,7 +1,12 @@
 import pytest
 import os
 from contextlib import contextmanager
-import nclib
+
+try:
+    import nclib
+except ImportError:
+    nclib = None
+
 from pathlib import Path
 from typing import (
     Iterator,
@@ -45,10 +50,10 @@ import json
 from contextlib import AbstractContextManager
 from proj.trees import load_filesystem_for_repo
 
-def project_instance() -> AbstractContextManager[Path]:
+def project_instance() -> 'AbstractContextManager[Path]':
     return _project_instance('simple')
 
-def cmade_project_instance() -> AbstractContextManager[Path]:
+def cmade_project_instance() -> 'AbstractContextManager[Path]':
     return _cmade_project_instance('simple')
 
 @pytest.mark.e2e
@@ -290,6 +295,10 @@ def test_test_test_case() -> None:
 
 @pytest.mark.e2e
 @pytest.mark.slow
+@pytest.mark.skipif(
+    nclib is None,
+    reason="requires nclib",
+)
 def test_test_test_case_debug() -> None:
     with cmade_project_instance() as d:
         def cmd_succeeds(env: Mapping[str, str]) -> bool:

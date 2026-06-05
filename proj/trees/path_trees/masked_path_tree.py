@@ -2,6 +2,7 @@ from typing import (
     Iterable,
     FrozenSet,
     Iterator,
+    Union,
 )
 from pathlib import PurePath
 from ..path_tree import (
@@ -9,6 +10,7 @@ from ..path_tree import (
 )
 from proj.utils import saturating_relative_to
 from dataclasses import dataclass
+from proj.utils import is_relative_to
 
 @dataclass(frozen=True)
 class AllowMask:
@@ -17,7 +19,7 @@ class AllowMask:
 
     def is_allowed(self, p: PurePath) -> bool:
         for _p in self.paths:
-            if p.is_relative_to(_p):
+            if is_relative_to(p, _p):
                 return True
         for _ext in self.extensions:
             if p.name.endswith(_ext):
@@ -31,7 +33,7 @@ class AllowMask:
         )
 
     @staticmethod
-    def from_iter(*, paths: Iterable[str | PurePath] = tuple(), extensions: Iterable[str] = tuple()) -> 'AllowMask':
+    def from_iter(*, paths: Iterable[Union[str, PurePath]] = tuple(), extensions: Iterable[str] = tuple()) -> 'AllowMask':
         _extensions = frozenset(extensions)
         for ext in _extensions:
             assert '/' not in ext
@@ -51,7 +53,7 @@ class IgnoreMask:
 
     def is_allowed(self, p: PurePath) -> bool:
         for _p in self.paths:
-            if p.is_relative_to(_p):
+            if is_relative_to(p, _p):
                 return False
         for _ext in self.extensions:
             if p.name.endswith(_ext):
@@ -65,7 +67,7 @@ class IgnoreMask:
         )
 
     @staticmethod
-    def from_iter(*, paths: Iterable[str | PurePath] = tuple(), extensions: Iterable[str] = tuple()) -> 'IgnoreMask':
+    def from_iter(*, paths: Iterable[Union[str, PurePath]] = tuple(), extensions: Iterable[str] = tuple()) -> 'IgnoreMask':
         _extensions = frozenset(extensions)
         for ext in _extensions:
             assert '/' not in ext
@@ -80,18 +82,18 @@ class IgnoreMask:
 
 class MaskedPathTree(PathTree):
     _wrapped: PathTree
-    _mask: AllowMask | IgnoreMask
+    _mask: Union[AllowMask, IgnoreMask]
 
     def __init__(
-        self, 
-        path_tree: PathTree, 
-        mask: AllowMask | IgnoreMask,
+        self,
+        path_tree: PathTree,
+        mask: Union[AllowMask, IgnoreMask],
     ) -> None:
         self._wrapped = path_tree
         self._mask = mask
 
     @property
-    def mask(self) -> AllowMask | IgnoreMask:
+    def mask(self) -> Union[AllowMask, IgnoreMask]:
         return self._mask
 
     def _is_masked(self, p: PurePath) -> bool:
@@ -100,7 +102,7 @@ class MaskedPathTree(PathTree):
     def _filter_masked(self, i: Iterable[PurePath]) -> Iterator[PurePath]:
         for p in i:
             if not self._is_masked(p):
-                yield p 
+                yield p
 
     def has_path(self, p: PurePath) -> bool:
         if self._is_masked(p):
@@ -112,7 +114,7 @@ class MaskedPathTree(PathTree):
             return False
         return self._wrapped.has_dir(p=p)
 
-    def ls_dir(self, p: PurePath) -> Iterator[PurePath]: 
+    def ls_dir(self, p: PurePath) -> Iterator[PurePath]:
         return self._filter_masked(self._wrapped.ls_dir(p=p))
 
     def restrict_to_subdir(self, p: PurePath) -> 'MaskedPathTree':

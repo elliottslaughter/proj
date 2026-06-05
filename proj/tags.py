@@ -12,7 +12,7 @@ from proj.dtgen.project import load_dtgen_specs_in_repo
 from proj.dtgen.struct.spec import StructSpec
 from proj.dtgen.variant.spec import VariantSpec
 from proj.dtgen.enum.spec import EnumSpec
-from enum import StrEnum
+from proj.strenum import StrEnum
 from proj.config_file import (
     ExtensionConfig,
     ProjectConfig,
@@ -26,7 +26,7 @@ class TagType(StrEnum):
     CLASS = 'c'
     ENUM = 'g'
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True)
 class Tag:
     tag_name: str
     file_path: PurePath

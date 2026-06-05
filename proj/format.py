@@ -8,6 +8,7 @@ from typing import (
     Iterator,
 )
 from .config_file import ProjectConfig
+from proj.utils import is_relative_to
 
 _l = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ def find_files(config: ProjectConfig) -> Iterator[Path]:
 
     def is_blacklisted(p: Path) -> bool:
         for blacklisted in blacklist:
-            if p.is_relative_to(blacklisted):
+            if is_relative_to(p, blacklisted):
                 return True
         if p.name.endswith(".dtg.cc") or p.name.endswith(
             ".dtg" + config.header_extension
@@ -38,7 +39,7 @@ def find_files(config: ProjectConfig) -> Iterator[Path]:
 def _run_clang_format(
     root: Path,
     args: Sequence[str],
-    files: Sequence[PathLike[str]],
+    files: Sequence['PathLike[str]'],
     use_default_style: bool = False,
 ) -> None:
     command = ["ff-clang-format"]
@@ -54,7 +55,7 @@ def _run_clang_format(
 
 
 def run_formatter_check(
-    config: ProjectConfig, files: Optional[Sequence[PathLike[str]]] = None
+    config: ProjectConfig, files: Optional[Sequence['PathLike[str]']] = None
 ) -> None:
     if files is None:
         files = list(find_files(config=config))
@@ -68,7 +69,7 @@ def run_formatter_check(
     )
 
 def run_formatter(
-    config: ProjectConfig, files: Optional[Sequence[PathLike[str]]] = None
+    config: ProjectConfig, files: Optional[Sequence['PathLike[str]']] = None
 ) -> None:
     if files is None:
         files = list(find_files(config=config))

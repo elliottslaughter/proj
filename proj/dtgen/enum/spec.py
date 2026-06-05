@@ -6,10 +6,10 @@ from typing import (
     Mapping,
     FrozenSet,
 )
+from proj.strenum import StrEnum
 from enum import (
     Enum,
     auto,
-    StrEnum,
 )
 from pathlib import Path
 import proj.toml as toml

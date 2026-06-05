@@ -16,9 +16,9 @@ class RepoRelPath:
     path: PurePath
     repo: Optional[Repo] = field(default=None)
 
-    def is_relative_to(self, other: 'RepoRelPath') -> bool:
-        assert self.repo == other.repo and self.repo is not None
-        return self.path.is_relative_to(other.path)
+    # def is_relative_to(self, other: 'RepoRelPath') -> bool:
+    #     assert self.repo == other.repo and self.repo is not None
+    #     return self.path.is_relative_to(other.path)
 
     def __truediv__(self, other: Union[str, PurePath]) -> 'RepoRelPath':
         return RepoRelPath(self.path / other, self.repo)
@@ -32,11 +32,11 @@ class RepoRelPath:
     @property
     def name(self) -> str:
         return self.path.name
-    
+
     @property
     def parents(self) -> Sequence['RepoRelPath']:
         return [RepoRelPath(p) for p in self.path.parents]
-    
+
     @property
     def suffixes(self) -> List[str]:
         return self.path.suffixes

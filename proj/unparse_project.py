@@ -55,13 +55,12 @@ def _get_repo_rel_path_for_component_rel_path(component_rel_path: ComponentRelPa
     assert component is not None
 
     base: PurePath
-    match component.component_type:
-        case ComponentType.LIBRARY:
-            base = PurePath('lib')
-        case ComponentType.EXECUTABLE:
-            base = PurePath('bin')
-        case _:
-            raise ValueError(f'Unknown component type {component.component_type}')
+    if component.component_type == ComponentType.LIBRARY:
+        base = PurePath('lib')
+    elif component.component_type == ComponentType.EXECUTABLE:
+        base = PurePath('bin')
+    else:
+        raise ValueError(f'Unknown component type {component.component_type}')
 
     return RepoRelPath(base / component.name / component_rel_path.path, component.repo)
 
@@ -98,13 +97,12 @@ def _get_fullpath_for_component_rel_path(component_rel: ComponentRelPath) -> Pur
 def _get_fullpath_for_component(component: Component) -> PurePath:
     assert component.repo is not None
     repo_path = component.repo.path
-    match component.component_type:
-        case ComponentType.LIBRARY:
-            return repo_path / 'lib' / component.name
-        case ComponentType.EXECUTABLE:
-            return repo_path / 'bin' / component.name
-        case _:
-            raise ValueError(f'Unknown component type {component.component_type}')
+    if component.component_type == ComponentType.LIBRARY:
+        return repo_path / 'lib' / component.name
+    elif component.component_type == ComponentType.EXECUTABLE:
+        return repo_path / 'bin' / component.name
+    else:
+        raise ValueError(f'Unknown component type {component.component_type}')
 
 def _get_fullpath_for_repo_rel_path(repo_rel: RepoRelPath) -> PurePath:
     assert repo_rel.repo is not None

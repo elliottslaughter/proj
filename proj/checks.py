@@ -7,9 +7,7 @@ from typing import (
 from os import (
     PathLike,
 )
-from enum import (
-    StrEnum,
-)
+from proj.strenum import StrEnum
 from .config_file import (
     ProjectConfig,
     ExtensionConfig,
@@ -119,35 +117,33 @@ def run_include_check(
     valid_include_paths = set()
     for file in scan_repo_for_files(repo_path_tree, extension_config):
         if isinstance(file, File):
-            match file.role:
-                case RoleInGroup.PUBLIC_HEADER:
-                    valid_include_paths.add(get_include_path(file.group, header_extension=extension_config.header_extension))
-                case RoleInGroup.DTGEN_TOML:
-                    valid_include_paths.add(get_generated_include_path(file.group, header_extension=extension_config.header_extension))
-    
+            if file.role == RoleInGroup.PUBLIC_HEADER:
+                valid_include_paths.add(get_include_path(file.group, header_extension=extension_config.header_extension))
+            elif file.role == RoleInGroup.DTGEN_TOML:
+                valid_include_paths.add(get_generated_include_path(file.group, header_extension=extension_config.header_extension))
+
     failed = False
     for file in scan_repo_for_files(repo_path_tree, extension_config):
         if isinstance(file, File):
-            match file.role:
-                case RoleInGroup.DTGEN_TOML:
-                    valid_include_paths.add(get_include_path(file.group, header_extension=extension_config.header_extension))
-                case _:
-                    contents = repo_path_tree.get_file_contents(
-                        get_repo_rel_path(file, extension_config).path 
-                    )
-                    includes = find_includes_in_cpp_file_contents(
-                        contents,
-                        header_extension=extension_config.header_extension, 
-                    )
-                    for include in includes:
-                        if isinstance(include, File):
-                            include_path = get_include_path_for_file(include, header_extension=extension_config.header_extension)
-                            if include_path not in valid_include_paths:
-                                _l.warning('Found invalid include in %s: %s does not exist', file, include)
-                                failed = True
+            if file.role == RoleInGroup.DTGEN_TOML:
+                valid_include_paths.add(get_include_path(file.group, header_extension=extension_config.header_extension))
+            else:
+                contents = repo_path_tree.get_file_contents(
+                    get_repo_rel_path(file, extension_config).path
+                )
+                includes = find_includes_in_cpp_file_contents(
+                    contents,
+                    header_extension=extension_config.header_extension,
+                )
+                for include in includes:
+                    if isinstance(include, File):
+                        include_path = get_include_path_for_file(include, header_extension=extension_config.header_extension)
+                        if include_path not in valid_include_paths:
+                            _l.warning('Found invalid include in %s: %s does not exist', file, include)
+                            failed = True
     if failed:
         fail_with_error("Include check failed.")
-          
+
 
 def run_ifndef_check(
     repo_path_tree: FileTree,
@@ -190,7 +186,7 @@ def run_doxygen_check(
         fail_with_error("Doxygen check failed.")
 
 def run_formatter_check(
-    config: ProjectConfig, files: Optional[Sequence[PathLike[str]]] = None
+    config: ProjectConfig, files: Optional[Sequence['PathLike[str]']] = None
 ) -> None:
     try:
         _run_formatter_check(config=config, files=files)
@@ -237,7 +233,7 @@ def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMt
     cmake_all(config, fast=False, trace=False)
 
     build_targets(
-        repo=config.repo, 
+        repo=config.repo,
         repo_path_tree=repo_file_tree,
         config=config,
         targets=config.all_build_targets,
