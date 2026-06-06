@@ -10,15 +10,16 @@ from typing import (
 )
 from .absolute_path import AbsolutePath
 from .repo import Repo
+from proj.utils import is_relative_to
 
 @dataclass(frozen=True)
 class RepoRelPath:
     path: PurePath
     repo: Optional[Repo] = field(default=None)
 
-    # def is_relative_to(self, other: 'RepoRelPath') -> bool:
-    #     assert self.repo == other.repo and self.repo is not None
-    #     return self.path.is_relative_to(other.path)
+    def is_relative_to(self, other: 'RepoRelPath') -> bool:
+        assert self.repo == other.repo and self.repo is not None
+        return is_relative_to(self.path, other.path)
 
     def __truediv__(self, other: Union[str, PurePath]) -> 'RepoRelPath':
         return RepoRelPath(self.path / other, self.repo)

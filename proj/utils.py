@@ -98,7 +98,7 @@ def saturating_relative_to(child: PurePath, parent: PurePath) -> Optional[PurePa
     _l.debug('saturating_relative_to(%s, %s) -> %s', child, parent, result)
     return result
 
-def is_relative_to(child: Path, parent: PurePath) -> bool:
+def is_relative_to(child: PurePath, parent: PurePath) -> bool:
     try:
         child.relative_to(parent)
         return True

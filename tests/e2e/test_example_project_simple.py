@@ -1,19 +1,14 @@
 import pytest
 import os
 from contextlib import contextmanager
-
-try:
-    import nclib
-except ImportError:
-    nclib = None
-
-from pathlib import Path
 from typing import (
     Iterator,
     Iterable,
     Mapping,
     List,
+    TYPE_CHECKING,
 )
+from pathlib import Path
 from proj.targets import (
     BuildTarget,
     LibTarget,
@@ -49,6 +44,15 @@ from .e2e_utils import (
 import json
 from contextlib import AbstractContextManager
 from proj.trees import load_filesystem_for_repo
+
+if TYPE_CHECKING:
+    import nclib
+else:
+    try:
+        import nclib
+    except ImportError:
+        nclib = None
+
 
 def project_instance() -> 'AbstractContextManager[Path]':
     return _project_instance('simple')

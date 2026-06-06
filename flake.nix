@@ -96,6 +96,8 @@
               # ipdb
               mypy
               tox
+              pytest-xdist
+              nclib
             ])
             (with self.packages.${system}; [
               rapidcheckFull

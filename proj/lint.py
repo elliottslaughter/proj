@@ -24,6 +24,7 @@ from .config_file import (
 )
 from .trees import PathTree
 from .subprocess_invocation import SubprocessInvocation
+from proj.utils import is_relative_to
 
 _l = logging.getLogger(__name__)
 
@@ -39,9 +40,9 @@ def find_repo_files_for_linter(repo_path_tree: PathTree, extension_config: Exten
     ]
 
     def is_blacklisted(p: RepoRelPath) -> bool:
-        if not any(is_relative_to(p, whitelisted) for whitelisted in whitelist):
+        if not any(p.is_relative_to(whitelisted) for whitelisted in whitelist):
             return True
-        if any(is_relative_to(p, blacklisted) for blacklisted in blacklist):
+        if any(p.is_relative_to(blacklisted) for blacklisted in blacklist):
             return True
         if any(
             parent.name == "test" for parent in p.parents

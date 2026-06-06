@@ -4,6 +4,8 @@ from typing import (
     Union,
     Iterable,
     Tuple,
+    List,
+    Dict,
 )
 from .targets import (
     CpuTestSuiteTarget,
@@ -38,6 +40,7 @@ from .progressbar import (
 from .terminal_colors import (
     TermColor,
 )
+import concurrent.futures
 
 _l = logging.getLogger(__name__)
 
@@ -166,6 +169,37 @@ class TestCaseResult:
     stderr: bytes
     stdout: bytes
 
+@dataclass(frozen=True, eq=True)
+class RunTestCaseArgs:
+    cmd: List[str]
+    cwd: Path
+    env: Dict[str, str]
+
+def build_test_case_args(
+    config: ProjectConfig,
+    test_case: Union[CpuTestCaseTarget, CudaTestCaseTarget],
+    build_dir: Path,
+) -> RunTestCaseArgs:
+    return RunTestCaseArgs(
+        cmd=list(config.cmd_for_run_target(test_case.run_target)),
+        cwd=build_dir / test_case.run_target.executable_path.parent,
+        env=dict(os.environ),
+    )
+
+def execute_test_case(args: RunTestCaseArgs) -> TestCaseResult:
+    completed_process = subprocess.run(
+        command=args.cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=args.cwd,
+        env=args.env,
+    )
+
+    return TestCaseResult(
+        did_pass=(completed_process.returncode == 0),
+        stderr=completed_process.stderr,
+        stdout=completed_process.stdout,
+    )
 
 def run_test_case(
     config: ProjectConfig,
@@ -173,8 +207,6 @@ def run_test_case(
     build_dir: Path,
     debug: bool,
 ) -> TestCaseResult:
-    _l.info("Running test case %s", test_case)
-
     cmd = config.cmd_for_run_target(test_case.run_target)
     cwd = build_dir / test_case.run_target.executable_path.parent
     env = os.environ
@@ -266,7 +298,7 @@ def run_test_suites(
         Union[MixedTestSuiteTarget, CpuTestSuiteTarget, CudaTestSuiteTarget]
     ],
     build_dir: Path,
-    debug: bool,
+    jobs: int,
 ) -> TestStatistics:
     _l.info("Running test suites %s", test_suites)
 
@@ -282,20 +314,29 @@ def run_test_suites(
 
     manager = get_progress_manager()
     with manager.counter(total=len(test_cases), desc="Running tests") as pbar:
-        for test_case in test_cases:
-            test_case_result = run_test_case(
-                config=config,
-                test_case=test_case,
-                build_dir=build_dir,
-                debug=debug,
-            )
-            pbar.update()
-            if test_case_result.did_pass:
-                passed.append(test_case)
-            else:
-                failed.append(test_case)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as executor:
+            future_to_test_case = {
+                executor.submit(
+                    execute_test_case,
+                    build_test_case_args(config, test_case, build_dir),
+                ): test_case
+                for test_case in test_cases
+            }
 
-                report_test_failure(test_case, test_case_result)
+            for future in concurrent.futures.as_completed(future_to_test_case):
+                test_case = future_to_test_case[future]
+                try:
+                    test_case_result = future.result()
+                except Exception:
+                    _l.exception('Encountered an exception running a test case')
+                else:
+                    pbar.update()
+                    if test_case_result.did_pass:
+                        passed.append(test_case)
+                    else:
+                        failed.append(test_case)
+
+                        report_test_failure(test_case, test_case_result)
 
     return TestStatistics(
         passed=tuple(passed),

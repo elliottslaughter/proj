@@ -637,11 +637,12 @@ def main_test(args: MainTestArgs) -> int:
     if len(get_test_cases(requested_test_targets_to_run)) == 0:
         test_suites = get_test_suites(requested_test_targets_to_run)
         _l.debug("No testcases required, running test suites %s", test_suites)
+        assert args.debug is False
         test_statistics = run_test_suites(
             config=config,
             test_suites=test_suites,
             build_dir=build_dir,
-            debug=args.debug,
+            jobs=args.jobs,
         )
         num_passed = len(test_statistics.passed)
         num_failed = len(test_statistics.failed)
@@ -711,12 +712,13 @@ def main_test(args: MainTestArgs) -> int:
 class MainCheckArgs:
     path: Path
     check: Check
+    jobs: int
     verbosity: int
 
 def main_check(args: MainCheckArgs) -> int:
     config = get_config(args.path)
 
-    run_check(config, args.check, verbosity=args.verbosity)
+    run_check(config, args.check, verbosity=args.verbosity, jobs=args.jobs)
 
     return STATUS_OK
 
@@ -1101,6 +1103,9 @@ def make_parser() -> argparse.ArgumentParser:
 
     check_p = subparsers.add_parser("check")
     set_main_signature(check_p, main_check, MainCheckArgs)
+    check_p.add_argument(
+        "--jobs", "-j", type=int, default=multiprocessing.cpu_count()
+    )
     check_p.add_argument("check", choices=list(sorted(Check)))
     add_verbosity_args(check_p)
 

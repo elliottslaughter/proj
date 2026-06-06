@@ -129,7 +129,7 @@ def find_includes_in_cpp_file_contents(contents: str, header_extension: str) -> 
         result.append(recognize_include_spec_as_file(include_spec, header_extension))
     return result
 
-def find_include_specs_in_dtgen_toml_file_contents(contents: str) -> Sequence[IncludeSpec]:
+def _find_include_specs_in_dtgen_toml_file_contents(contents: str) -> Iterator[IncludeSpec]:
     try:
         raw = toml.loads(contents)
     except toml.TOMLDecodeError as e:
@@ -138,9 +138,15 @@ def find_include_specs_in_dtgen_toml_file_contents(contents: str) -> Sequence[In
     includes = raw.get('includes', tuple())
     src_includes = raw.get('src_includes', tuple())
 
-    return [
-        parse_include_spec(include) for include in itertools.chain(includes, src_includes)
-    ]
+    assert isinstance(includes, (list, tuple))
+    assert isinstance(src_includes, (list, tuple))
+
+    for include in itertools.chain(includes, src_includes):
+        assert isinstance(include, str)
+        yield parse_include_spec(include)
+
+def find_include_specs_in_dtgen_toml_file_contents(contents: str) -> Sequence[IncludeSpec]:
+    return list(_find_include_specs_in_dtgen_toml_file_contents(contents))
 
 def find_includes_in_dtgen_toml_file_contents(contents: str, header_extension: str) -> Sequence[Union[File, SystemInclude, UnknownInclude]]:
     return [

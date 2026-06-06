@@ -21,7 +21,6 @@ from .dtgen import (
 from .cmake import (
     cmake_all,
 )
-import multiprocessing
 from .build import (
     build_targets,
 )
@@ -194,7 +193,7 @@ def run_formatter_check(
         fail_with_error("Formatter check failed. You should probably run 'proj format'")
 
 
-def run_check(config: ProjectConfig, check: Check, verbosity: int) -> None:
+def run_check(config: ProjectConfig, check: Check, verbosity: int, jobs: int) -> None:
     repo_file_tree = load_filesystem_for_repo(config.repo)
 
     if check == Check.FORMAT:
@@ -202,9 +201,9 @@ def run_check(config: ProjectConfig, check: Check, verbosity: int) -> None:
     elif check == Check.LAYOUT:
         run_layout_check(repo_file_tree, config)
     elif check == Check.CPU_CI:
-        run_cpu_ci(config, repo_file_tree, verbosity=verbosity)
+        run_cpu_ci(config, repo_file_tree, verbosity=verbosity, jobs=jobs)
     elif check == Check.GPU_CI:
-        run_gpu_ci(config, verbosity=verbosity)
+        run_gpu_ci(config, verbosity=verbosity, jobs=jobs)
     elif check == Check.IFNDEF:
         run_ifndef_check(
             repo_file_tree,
@@ -222,7 +221,7 @@ def run_check(config: ProjectConfig, check: Check, verbosity: int) -> None:
         raise ValueError(f'Invalid check: {check!r}')
 
 
-def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int) -> None:
+def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int, jobs: int) -> None:
     run_dtgen(
         repo=config.repo,
         repo_file_tree=repo_file_tree,
@@ -237,13 +236,13 @@ def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMt
         repo_path_tree=repo_file_tree,
         config=config,
         targets=config.all_build_targets,
-        jobs=multiprocessing.cpu_count(),
+        jobs=jobs,
         verbosity=verbosity,
         build_dir=config.debug_build_dir,
     )
 
 
-def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int) -> None:
+def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int, jobs: int) -> None:
 
     _l.info("Running repository layout check...")
     run_layout_check(repo_file_tree, config)
@@ -269,7 +268,7 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
         repo_path_tree=repo_file_tree,
         config=config,
         targets=cpu_build_targets,
-        jobs=multiprocessing.cpu_count(),
+        jobs=jobs,
         verbosity=verbosity,
         build_dir=config.coverage_build_dir,
     )
@@ -279,7 +278,7 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
         config=config,
         test_suites=list(sorted(config.all_cpu_test_targets)),
         build_dir=config.coverage_build_dir,
-        debug=False,
+        jobs=jobs,
     )
 
     if len(test_results.failed) > 0:
@@ -291,7 +290,7 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
 
 
 
-def run_gpu_ci(config: ProjectConfig, verbosity: int) -> None:
+def run_gpu_ci(config: ProjectConfig, verbosity: int, jobs: int) -> None:
     repo_file_tree = load_filesystem_for_repo(config.repo)
 
     _l.info("Running dtgen")
@@ -312,7 +311,7 @@ def run_gpu_ci(config: ProjectConfig, verbosity: int) -> None:
         repo_path_tree=repo_file_tree,
         config=config,
         targets=cuda_build_targets,
-        jobs=multiprocessing.cpu_count(),
+        jobs=jobs,
         verbosity=verbosity,
         build_dir=config.debug_build_dir,
     )
@@ -323,7 +322,7 @@ def run_gpu_ci(config: ProjectConfig, verbosity: int) -> None:
         config=config,
         test_suites=test_suites,
         build_dir=config.debug_build_dir,
-        debug=False,
+        jobs=jobs,
     )
 
     if len(test_results.failed) > 0:

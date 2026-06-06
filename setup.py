@@ -16,9 +16,12 @@ setup(
         "test": [
             "pytest>=8.0.0,<10.0.0",
             "pytest-skip-slow==0.0.5",
-            "pytest-xdist>=3.0.0,<4.0.0",
-            'typing-extensions>=4.0.0,<5.0.0',
+            "typing-extensions>=4.0.0,<5.0.0",
+            "nclib>=1.0.0,<2.0.0",
         ],
+        "xdist": [
+            "pytest-xdist>=3.0.0,<4.0.0",
+        ]
     },
     entry_points={
         'console_scripts': ['proj = proj.__main__:entrypoint' ]
