@@ -13,7 +13,7 @@ TEST_SUITE(TP_TEST_SUITE) {
     json j = "RED";
 
     Color c = j.get<Color>();
-    
+
     CHECK(c == Color::RED);
   }
 
@@ -22,7 +22,7 @@ TEST_SUITE(TP_TEST_SUITE) {
 
     json j = c;
     Color c2 = j.get<Color>();
-    
+
     CHECK(c2 == c);
   }
 
@@ -60,13 +60,13 @@ TEST_SUITE(TP_TEST_SUITE) {
 
   TEST_CASE("fmt") {
     Color c = Color::YELLOW;
-    std::string correct = "YELLOW";
+    std::string correct = "\"YELLOW\"";
     CHECK(fmt::to_string(c) == correct);
   }
 
   TEST_CASE("ostream") {
     Color c = Color::BLUE;
-    std::string correct = "BLUE";
+    std::string correct = "\"BLUE\"";
     std::ostringstream oss;
     oss << c;
     CHECK(oss.str() == correct);

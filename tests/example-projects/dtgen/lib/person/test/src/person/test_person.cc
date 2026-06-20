@@ -70,7 +70,7 @@ TEST_SUITE(TP_TEST_SUITE) {
 
     json j = p;
     Person p2 = j.get<Person>();
-    
+
     CHECK(p2 == p);
   }
 
@@ -117,13 +117,13 @@ TEST_SUITE(TP_TEST_SUITE) {
 
   TEST_CASE("fmt") {
     Person p = Person{ first_name, last_name, age };
-    std::string correct = "<Person first_name=first last_name=last age=15>";
+    std::string correct = "{\"__type\":\"Person\",\"age_in_years\":15,\"first_name\":\"first\",\"last_name\":\"last\"}";
     CHECK(fmt::to_string(p) == correct);
   }
 
   TEST_CASE("ostream") {
     Person p = Person{ first_name, last_name, age };
-    std::string correct = "<Person first_name=first last_name=last age=15>";
+    std::string correct = "{\"__type\":\"Person\",\"age_in_years\":15,\"first_name\":\"first\",\"last_name\":\"last\"}";
     std::ostringstream oss;
     oss << p;
     CHECK(oss.str() == correct);

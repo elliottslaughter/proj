@@ -40,7 +40,7 @@ TEST_SUITE(TP_TEST_SUITE) {
 
     json j = p;
     empty_t p2 = j.get<empty_t>();
-    
+
     CHECK(p2 == p);
   }
 
@@ -67,13 +67,13 @@ TEST_SUITE(TP_TEST_SUITE) {
 
   TEST_CASE("fmt") {
     empty_t p = {};
-    std::string correct = "<empty_t>";
+    std::string correct = "{\"__type\":\"empty_t\"}";
     CHECK(fmt::to_string(p) == correct);
   }
 
   TEST_CASE("ostream") {
     empty_t p = {};
-    std::string correct = "<empty_t>";
+    std::string correct = "{\"__type\":\"empty_t\"}";
     std::ostringstream oss;
     oss << p;
     CHECK(oss.str() == correct);

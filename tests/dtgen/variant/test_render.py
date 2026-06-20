@@ -2,196 +2,271 @@ import pytest
 from proj.dtgen.variant.render import (
   render_header,
   render_source,
+  render_fmt_decl,
+  render_fmt_impl,
 )
 from proj.dtgen.variant.spec import (
   VariantSpec,
   ValueSpec,
   Feature,
-  parse_variant_spec,
 )
 from proj.includes import (
     IncludeSpec,
 )
-import sys
 import io
-import re
-import itertools
 from pathlib import PurePath
-import proj.toml as toml
+from ..cpp_testing_utils import cpp_tokenize
 
-def cpp_tokenize(s):
-    chunks = s.split()
-    split = itertools.chain(
-        *[re.split(r'(::|//|\W)', chunk) for chunk in chunks]
-    )
-
-    return [x for x in split if len(x) > 0]
-
-def test_parse_variant_spec_basic() -> None:
-    INPUT = toml.loads(
-        '''
-        namespace = "FlexFlow"
-        name = "MyVariant"
-        features = [
-          "eq",
-          "ord",
-          "hash",
-          "json",
-          "fmt",
-        ]
-
-        includes = [
-          "<string>",
-        ]
-
-        [[values]]
-        type = "int"
-        key = "num"
-
-        [[values]]
-        type = "std::string"
-        key = "str"
-        '''
-    )
-
-    result = parse_variant_spec(INPUT)
-    correct = VariantSpec(
-        includes=[
-            IncludeSpec(PurePath('string'), system=True),
-        ],
+def test_dtgen_variant_render_fmt_decl() -> None:
+    spec = VariantSpec(
+        includes=[],
         src_includes=[],
         post_includes=[],
-        fwd_decls=(),
-        namespace='FlexFlow',
-        template_params=(),
+        namespace='Example',
+        fwd_decls=[],
+        template_params=[],
         name='MyVariant',
         values=[
             ValueSpec(
-                type_='int',
+                type_='type_a',
                 docstring=None,
-                _key='num',
+                _key='a',
                 _json_key=None,
                 _fmt_key=None,
-                _indirect=None,
+                _indirect=False,
             ),
             ValueSpec(
-                type_='std::string',
+                type_='type_b',
                 docstring=None,
-                _key='str',
+                _key='b',
                 _json_key=None,
                 _fmt_key=None,
-                _indirect=None,
+                _indirect=False,
             ),
         ],
         features=frozenset([
-            Feature.EQ,
-            Feature.ORD,
-            Feature.HASH,
-            Feature.JSON,
             Feature.FMT,
         ]),
         explicit_constructors=True,
         docstring=None,
     )
 
-    assert result == correct
+    f = io.StringIO()
+    render_fmt_decl(spec, f)
+    result = cpp_tokenize(f.getvalue())
 
-def test_parse_variant_spec_raises_on_invalid_key() -> None:
-    INPUT = toml.loads(
+    correct = cpp_tokenize(
         '''
-        namespace = "FlexFlow"
-        name = "MyVariant"
-        features = [
-          "eq",
-          "ord",
-          "hash",
-          "json",
-          "fmt",
-        ]
+        namespace Example {
 
-        includes = [
-          "<string>",
-        ]
+        std::string format_as(::Example::MyVariant const &);
+        std::ostream &operator<<(std::ostream &, ::Example::MyVariant const &);
 
-        abc = []
-        def = []
-
-        [[values]]
-        type = "int"
-        key = "num"
-
-        [[values]]
-        type = "std::string"
-        key = "str"
+        } // namespace Example
         '''
     )
 
-    with pytest.raises(ValueError) as excinfo:
-        parse_variant_spec(INPUT)
+    assert result == correct
 
-    assert "abc" in str(excinfo.value)
-    assert "def" in str(excinfo.value)
+def test_dtgen_variant_render_fmt_impl() -> None:
+    spec = VariantSpec(
+        includes=[],
+        src_includes=[],
+        post_includes=[],
+        namespace='Example',
+        fwd_decls=[],
+        template_params=[],
+        name='MyVariant',
+        values=[
+            ValueSpec(
+                type_='type_a',
+                docstring=None,
+                _key='a',
+                _json_key=None,
+                _fmt_key=None,
+                _indirect=False,
+            ),
+            ValueSpec(
+                type_='type_b',
+                docstring=None,
+                _key='b',
+                _json_key=None,
+                _fmt_key=None,
+                _indirect=False,
+            ),
+        ],
+        features=frozenset([
+            Feature.FMT,
+        ]),
+        explicit_constructors=True,
+        docstring=None,
+    )
 
-def test_parse_variant_spec_raises_on_value_key() -> None:
-    INPUT = toml.loads(
+    f = io.StringIO()
+    render_fmt_impl(spec, f)
+    result = cpp_tokenize(f.getvalue())
+
+    correct = cpp_tokenize(
         '''
-        namespace = "FlexFlow"
-        name = "MyVariant"
-        features = [
-          "eq",
-          "ord",
-          "hash",
-          "json",
-          "fmt",
-        ]
+        namespace Example {
 
-        includes = [
-          "<string>",
-        ]
+        std::string MyVariant::debug_to_string() const {
+            return fmt::to_string(*this);
+        }
 
-        [[values]]
-        type = "int"
-        name = "num"
-        abc = "1"
+        void MyVariant::debug_print() const {
+            std::cout << this->debug_to_string() << std::endl;
+        }
 
-        [[values]]
-        type = "std::string"
-        key = "str"
+        std::string format_as(::Example::MyVariant const &x) {
+            std::ostringstream oss;
+            switch (x.index()) {
+                case 0: {
+                    oss << "<MyVariant a=" << x.template get<type_a>() << ">";
+                    break;
+                }
+                case 1: {
+                    oss << "<MyVariant b=" << x.template get<type_b>() << ">";
+                    break;
+                }
+                default: {
+                    throw std::runtime_error(fmt::format("Unknown index {} for type MyVariant", x.index()));
+                    break;
+                }
+            }
+            return oss.str();
+        }
+
+        std::ostream &operator<<(std::ostream &s, ::Example::MyVariant const &x) {
+            return s << fmt::to_string(x);
+        }
+
+        } // namespace Example
         '''
     )
 
-    with pytest.raises(ValueError) as excinfo:
-        parse_variant_spec(INPUT)
+    assert result == correct
 
-    assert "name" in str(excinfo.value)
-    assert "abc" in str(excinfo.value)
+def test_dtgen_variant_render_fmt_decl_with_json_enabled() -> None:
+    spec = VariantSpec(
+        includes=[],
+        src_includes=[],
+        post_includes=[],
+        namespace='Example',
+        fwd_decls=[],
+        template_params=[],
+        name='MyVariant',
+        values=[
+            ValueSpec(
+                type_='type_a',
+                docstring=None,
+                _key='a',
+                _json_key=None,
+                _fmt_key=None,
+                _indirect=False,
+            ),
+            ValueSpec(
+                type_='type_b',
+                docstring=None,
+                _key='b',
+                _json_key=None,
+                _fmt_key=None,
+                _indirect=False,
+            ),
+        ],
+        features=frozenset([
+            Feature.FMT,
+            Feature.JSON,
+        ]),
+        explicit_constructors=True,
+        docstring=None,
+    )
 
-def test_cpp_tokenize() -> None:
-    EXAMPLE = 'std::variant<type_a, type_b> raw_variant;};}// namespace Example'
+    f = io.StringIO()
+    render_fmt_decl(spec, f)
+    result = cpp_tokenize(f.getvalue())
 
-    result = cpp_tokenize(EXAMPLE)
-    correct = [
-        'std',
-        '::',
-        'variant',
-        '<',
-        'type_a',
-        ',',
-        'type_b',
-        '>',
-        'raw_variant',
-        ';',
-        '}',
-        ';',
-        '}',
-        '//',
-        'namespace',
-        'Example',
-    ]
+    correct = cpp_tokenize(
+        '''
+        namespace Example {
+
+        std::string format_as(::Example::MyVariant const &);
+        std::ostream &operator<<(std::ostream &, ::Example::MyVariant const &);
+
+        } // namespace Example
+        '''
+    )
 
     assert result == correct
 
-def test_render_variant_header() -> None:
+def test_dtgen_variant_render_fmt_impl_with_json_enabled() -> None:
+    spec = VariantSpec(
+        includes=[],
+        src_includes=[],
+        post_includes=[],
+        namespace='Example',
+        fwd_decls=[],
+        template_params=[],
+        name='MyVariant',
+        values=[
+            ValueSpec(
+                type_='type_a',
+                docstring=None,
+                _key='a',
+                _json_key=None,
+                _fmt_key=None,
+                _indirect=False,
+            ),
+            ValueSpec(
+                type_='type_b',
+                docstring=None,
+                _key='b',
+                _json_key=None,
+                _fmt_key=None,
+                _indirect=False,
+            ),
+        ],
+        features=frozenset([
+            Feature.FMT,
+            Feature.JSON,
+        ]),
+        explicit_constructors=True,
+        docstring=None,
+    )
+
+    f = io.StringIO()
+    render_fmt_impl(spec, f)
+    result = cpp_tokenize(f.getvalue())
+
+    correct = cpp_tokenize(
+        '''
+        namespace Example {
+
+        std::string MyVariant::debug_to_string() const {
+            return fmt::to_string(*this);
+        }
+
+        void MyVariant::debug_print() const {
+            std::cout << this->debug_to_string() << std::endl;
+        }
+
+        std::string format_as(::Example::MyVariant const &x) {
+            ::nlohmann::json j = x;
+            return j.dump();
+        }
+
+        std::ostream &operator<<(std::ostream &s, ::Example::MyVariant const &x) {
+            return s << fmt::to_string(x);
+        }
+
+        } // namespace Example
+        '''
+    )
+
+    assert result == correct
+
+
+def test_dtgen_variant_render_header() -> None:
     CORRECT_HDR = '''
     #include <cstddef>
     #include <fmt/format.h>
@@ -320,7 +395,7 @@ def test_render_variant_header() -> None:
 
     assert result == cpp_tokenize(CORRECT_HDR)
 
-def test_render_variant_source() -> None:
+def test_dtgen_variant_render_source() -> None:
     CORRECT_SRC = '''
     namespace Example{
 

@@ -575,10 +575,7 @@ def render_fmt_impl(spec: VariantSpec, f: TextIO) -> None:
             is_const=True,
             f=f,
         ):
-            if Feature.JSON in spec.features:
-                f.write("nlohmann::json j = *this; return j.dump();")
-            else:
-                f.write("return fmt::to_string(*this);")
+            f.write("return fmt::to_string(*this);")
 
         with render_function_definition(
             template_params=spec.template_params,
@@ -597,22 +594,28 @@ def render_fmt_impl(spec: VariantSpec, f: TextIO) -> None:
             args=[f"{typename} const &x"],
             f=f,
         ):
-            with sline(f):
-                f.write("std::ostringstream oss")
-            with render_switch_block(cond="x.index()", f=f):
-                for idx, value in enumerate(spec.values):
-                    with render_case(cond=str(idx), f=f):
+            if Feature.JSON in spec.features:
+                with sline(f):
+                    f.write("::nlohmann::json j = x")
+                with sline(f):
+                    f.write("return j.dump()")
+            else:
+                with sline(f):
+                    f.write("std::ostringstream oss")
+                with render_switch_block(cond="x.index()", f=f):
+                    for idx, value in enumerate(spec.values):
+                        with render_case(cond=str(idx), f=f):
+                            with sline(f):
+                                f.write(
+                                    f'oss << "<{spec.name} {value.key}=" << x.template get<{value.type_}>() << ">"'
+                                )
+                    with render_default_case(f=f):
                         with sline(f):
                             f.write(
-                                f'oss << "<{spec.name} {value.key}=" << x.template get<{value.type_}>() << ">"'
+                                f'throw std::runtime_error(fmt::format("Unknown index {{}} for type {spec.name}", x.index()))'
                             )
-                with render_default_case(f=f):
-                    with sline(f):
-                        f.write(
-                            f'throw std::runtime_error(fmt::format("Unknown index {{}} for type {spec.name}", x.index()))'
-                        )
-            with sline(f):
-                f.write("return oss.str()")
+                with sline(f):
+                    f.write("return oss.str()")
 
         with render_function_definition(
             template_params=spec.template_params,

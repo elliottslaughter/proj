@@ -3,6 +3,7 @@ from proj.dtgen.struct.spec import (
   StructSpec,
   FieldSpec,
   parse_struct_spec,
+  Feature,
 )
 import proj.toml as toml
 
@@ -104,3 +105,4 @@ def test_parse_struct_spec_raises_on_field_key() -> None:
 
     assert "abc" in str(excinfo.value)
     assert "def" in str(excinfo.value)
+

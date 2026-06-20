@@ -15,6 +15,7 @@ from proj.dtgen.render_utils import (
     render_includes,
     render_namespace_block,
     semicolon,
+    sline,
     nlblock,
     braces,
     parens,
@@ -367,7 +368,8 @@ def render_fmt_decl(spec: StructSpec, f: TextIO) -> None:
     with render_namespace_block(spec.namespace, f):
         if len(spec.template_params) > 0:
             render_template_abs(spec.template_params, f)
-        with semicolon(f):
+
+        with sline(f):
             f.write("std::string format_as")
             with parens(f):
                 render_typename(spec=spec, qualified=False, f=f)
@@ -386,27 +388,36 @@ def render_fmt_decl(spec: StructSpec, f: TextIO) -> None:
 def render_fmt_impl(spec: StructSpec, f: TextIO) -> None:
     with render_namespace_block(spec.namespace, f):
         render_struct_impl_scope(spec, f, return_type="std::string")
-        if Feature.JSON in spec.features:
-            f.write("debug_to_string() const { nlohmann::json j = *this; return j.dump(); }")
-        else:
-            f.write("debug_to_string() const { return fmt::to_string(*this); }")
+        f.write("debug_to_string() const { return fmt::to_string(*this); }")
 
         render_struct_impl_scope(spec, f, return_type="void")
         f.write("debug_print() const { std::cout << this->debug_to_string() << std::endl; }");
 
         if len(spec.template_params) > 0:
             render_template_abs(spec.template_params, f)
-        f.write("std::string format_as")
-        with parens(f):
-            render_typename(spec=spec, qualified=False, f=f)
-            f.write(" const &x")
-        with braces(f):
-            f.write("std::ostringstream oss;\n")
-            f.write(f'oss << "<{spec.name}";\n')
-            for field in spec.fields:
-                f.write(f'oss << " {field.name}=" << x.{get_field_accessor(field)};\n')
-            f.write('oss << ">";\n')
-            f.write("return oss.str();")
+
+        if Feature.JSON in spec.features:
+            f.write("std::string format_as")
+            with parens(f):
+                render_typename(spec=spec, qualified=False, f=f)
+                f.write(" const &x")
+            with braces(f):
+                with sline(f):
+                    f.write('::nlohmann::json j = x')
+                with sline(f):
+                    f.write('return j.dump()')
+        else:
+            f.write("std::string format_as")
+            with parens(f):
+                render_typename(spec=spec, qualified=False, f=f)
+                f.write(" const &x")
+            with braces(f):
+                f.write("std::ostringstream oss;\n")
+                f.write(f'oss << "<{spec.name}";\n')
+                for field in spec.fields:
+                    f.write(f'oss << " {field.name}=" << x.{get_field_accessor(field)};\n')
+                f.write('oss << ">";\n')
+                f.write("return oss.str();")
 
         if len(spec.template_params) > 0:
             render_template_abs(spec.template_params, f)

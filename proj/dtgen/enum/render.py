@@ -12,6 +12,7 @@ from proj.dtgen.render_utils import (
     parens,
     render_doxygen_docstring,
     doxygen_ignore,
+    sline,
 )
 from contextlib import contextmanager
 from typing import (
@@ -74,26 +75,35 @@ def render_enum_block(name: str, f: TextIO) -> Iterator[None]:
             yield
 
 
-def render_fmt_decl(name: str, f: TextIO) -> None:
-    f.write(f"std::string format_as({name});\n")
-    f.write(f"std::ostream &operator<<(std::ostream &, {name});\n")
+def render_fmt_decl(spec: EnumSpec, f: TextIO) -> None:
+    f.write(f"std::string format_as({spec.name});\n")
+    f.write(f"std::ostream &operator<<(std::ostream &, {spec.name});\n")
 
 
 def render_fmt_impl(spec: EnumSpec, f: TextIO) -> None:
     with render_namespace_block(spec.namespace, f):
-        f.write(f"std::string format_as({spec.name} x)")
-        with braces(f):
-            f.write("switch (x)")
+        if Feature.JSON in spec.features:
+            f.write(f"std::string format_as({spec.name} x)")
             with braces(f):
-                for value in spec.values:
-                    f.write(f"case {spec.name}::{value.name}:\n")
-                    f.write(f'return "{value.name}";\n')
-                f.write("default:\n")
-                f.write("std::ostringstream oss;\n")
-                f.write(
-                    f'oss << "Unknown {spec.name} value " << static_cast<int>(x);\n'
-                )
-                f.write("throw std::runtime_error(oss.str());\n")
+                with sline(f):
+                    f.write("::nlohmann::json j = x")
+                with sline(f):
+                    f.write("return j.dump()")
+        else:
+            f.write(f"std::string format_as({spec.name} x)")
+            with braces(f):
+                f.write("switch (x)")
+                with braces(f):
+                    for value in spec.values:
+                        f.write(f"case {spec.name}::{value.name}:\n")
+                        f.write(f'return "{value.name}";\n')
+                    f.write("default:\n")
+                    f.write("std::ostringstream oss;\n")
+                    f.write(
+                        f'oss << "Unknown {spec.name} value " << static_cast<int>(x);\n'
+                    )
+                    f.write("throw std::runtime_error(oss.str());\n")
+
         f.write(f"std::ostream &operator<<(std::ostream &s, {spec.name} x)")
         with braces(f):
             f.write("return s << fmt::to_string(x);")
@@ -189,7 +199,7 @@ def render_header(spec: EnumSpec, f: TextIO) -> None:
                     f.write("\n\n" + render_doxygen_docstring(value.docstring))
                 f.write(value.name)
         if Feature.FMT in spec.features:
-            render_fmt_decl(spec.name, f)
+            render_fmt_decl(spec, f)
         if Feature.JSON in spec.features:
             render_json_decl(spec.name, f)
     if Feature.HASH in spec.features:
