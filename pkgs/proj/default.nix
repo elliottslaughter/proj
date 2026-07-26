@@ -7,7 +7,7 @@
 , pytest
 , nclib
 , valgrind
-, kcachegrind
+, kdePackages
 , ff-clang-format
 , hotspot
 , perf
@@ -21,7 +21,7 @@
 , libassert
 , rapidcheckFull
 , nlohmann_json
-, fmt
+, fmt_10
 , tree
 , doxygen
 , lcov
@@ -37,7 +37,7 @@
 let
   bins = [
     valgrind
-    kcachegrind
+    kdePackages.kcachegrind
     ff-clang-format
     hotspot
     perf
@@ -62,6 +62,7 @@ buildPythonApplication {
     enlighten
   ] ++ bins;
 
+  pyproject = true;
   build-system = [
     setuptools
   ];
@@ -83,7 +84,7 @@ buildPythonApplication {
     rapidcheckFull
     libassert
     nlohmann_json
-    fmt
+    fmt_10
   ];
 
   nativeCheckInputs = [
@@ -94,4 +95,6 @@ buildPythonApplication {
     nclib
     gdb
   ] ++ bins;
+
+  dontWrapQtApps = true;
 }

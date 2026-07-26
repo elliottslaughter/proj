@@ -248,10 +248,10 @@ def test_dtgen_struct_header_with_json_and_fmt_enabled() -> None:
 
     correct = cpp_normalize(
         '''
-        #include <fmt/format.h>
-        #include <iostream>
         #include <ostream>
         #include <nlohmann/json.hpp>
+        #include <iostream>
+        #include <fmt/format.h>
 
         namespace Example {
 
