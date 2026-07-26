@@ -4,19 +4,13 @@
   };
 
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-23.11";
+    nixpkgs.url = "nixpkgs/nixos-26.05";
     flake-utils.url = "github:numtide/flake-utils";
-    python38-nixpkgs.url = "github:nixos/nixpkgs/7592790b9e02f7f99ddcb1bd33fd44ff8df6a9a7";
   };
 
-  outputs = { self, nixpkgs, flake-utils, python38-nixpkgs, ... }: flake-utils.lib.eachDefaultSystem (system:
+  outputs = { self, nixpkgs, flake-utils, ... }: flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = import nixpkgs {
-        inherit system;
-        config.allowUnfree = true;
-      };
-
-      python38-pkgs = import python38-nixpkgs {
         inherit system;
         config.allowUnfree = true;
       };
@@ -29,7 +23,6 @@
           inherit bencher-cli;
           inherit ff-clang-format;
           inherit rapidcheckFull;
-          inherit doctest;
           inherit libassert;
 
           # for perf the kernel version doesn't matter as it's entirely in perl
@@ -38,7 +31,6 @@
         };
         bencher-cli = pkgs.callPackage ./pkgs/bencher.nix { };
         ff-clang-format = pkgs.callPackage ./pkgs/ff-clang-format.nix { };
-        doctest = pkgs.callPackage ./pkgs/doctest { };
         pytest-skip-slow = pkgs.python3Packages.callPackage ./pkgs/pytest-skip-slow.nix { };
         proj-nvim = pkgs.callPackage ./pkgs/proj-nvim.nix { inherit proj; };
         libdwarf-lite = pkgs.callPackage ./pkgs/libdwarf-lite.nix { };
@@ -78,17 +70,15 @@
               cmake
               ccache
               nlohmann_json
-              fmt
+              fmt_10
               cmake
               gbenchmark
               lcov
               gdb
+              doctest
               doxygen
               ninja
               universal-ctags
-            ])
-            (with python38-pkgs.python38Packages; [
-              pip
             ])
             (with pkgs.python3Packages; [
               pip
@@ -102,7 +92,6 @@
             (with self.packages.${system}; [
               rapidcheckFull
               pytest-skip-slow
-              doctest
               libassert
             ])
           ];

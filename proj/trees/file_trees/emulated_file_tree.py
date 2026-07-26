@@ -110,7 +110,7 @@ class EmulatedFileTree(MutableFileTree):
         expanded: Dict[PurePath, Optional[str]] = {}
         for p, contents in m.items():
             for parent in p.parents:
-                if parent is expanded:
+                if parent in expanded:
                     assert expanded[parent] is None
                 else:
                     expanded[parent] = None
