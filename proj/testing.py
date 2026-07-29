@@ -41,6 +41,7 @@ from .terminal_colors import (
     TermColor,
 )
 import concurrent.futures
+from .failure import fail_with_error
 
 _l = logging.getLogger(__name__)
 
@@ -114,6 +115,10 @@ def list_test_cases_in_test_suites(
     ],
     build_dir: Path,
 ) -> Iterator[Union[CpuTestCaseTarget, CudaTestCaseTarget]]:
+    _l.debug(
+        'Listing all test cases in test suites %s using build_dir %s',
+        test_suites, build_dir,
+    )
     yield from itertools.chain.from_iterable(
         [list_test_cases_in_suite(suite, build_dir) for suite in test_suites]
     )
@@ -162,6 +167,67 @@ def resolve_test_case_target_using_build(
             _l.debug("Test case %s found to be a CUDA test. Returning...", test_case)
             return test_case.cuda_test_case
 
+_DOCTEST_TEST_OUTPUT_SUFFIX_RE = re.compile(
+    (
+        br'^\[doctest\] test cases:\s+(?P<test_cases_executed>\d+) '
+        br'\|\s+(?P<test_cases_passed>\d+) passed '
+        br'\|\s+(?P<test_cases_failed>\d+) failed '
+        br'\|\s+(?P<test_cases_skipped>\d+) skipped\n'
+        br'^\[doctest\] assertions:\s+(?P<assertions_total>\d+) '
+        br'\|\s+(?P<assertions_passed>\d+) passed '
+        br'\|\s+(?P<assertions_failed>\d+) failed \|\n'
+        br'^\[doctest\] Status: (?P<status>SUCCESS|FAILURE)!'
+    ),
+    re.MULTILINE,
+)
+
+@dataclass(frozen=True, eq=True)
+class DoctestTestCaseExecutionSuffix:
+    test_cases_passed: int
+    test_cases_failed: int
+    test_cases_skipped: int
+    assertions_passed: int
+    assertions_failed: int
+    succeeded: bool
+
+def strip_terminal_escapes(b: bytes) -> bytes:
+    return re.sub(b'\x1b[^m]+m', b'', b)
+
+def parse_test_case_output(output: bytes) -> DoctestTestCaseExecutionSuffix:
+    doctest_lines = strip_terminal_escapes(
+        b'\n'.join(output.strip().splitlines()[-3:])
+    )
+
+    m = _DOCTEST_TEST_OUTPUT_SUFFIX_RE.fullmatch(doctest_lines)
+    assert m is not None, doctest_lines
+
+    test_cases_executed = int(m.group('test_cases_executed'))
+    test_cases_passed = int(m.group('test_cases_passed'))
+    test_cases_failed = int(m.group('test_cases_failed'))
+    test_cases_skipped = int(m.group('test_cases_skipped'))
+
+    assert test_cases_executed == (test_cases_passed + test_cases_failed)
+
+    assertions_total = int(m.group('assertions_total'))
+    assertions_passed = int(m.group('assertions_passed'))
+    assertions_failed = int(m.group('assertions_failed'))
+
+    assert assertions_total == (assertions_passed + assertions_failed)
+
+    STATUS_MAP = {
+        b'SUCCESS': True,
+        b'FAILURE': False,
+    }
+    succeeded = STATUS_MAP[m.group('status')]
+
+    return DoctestTestCaseExecutionSuffix(
+        test_cases_passed=test_cases_passed,
+        test_cases_failed=test_cases_failed,
+        test_cases_skipped=test_cases_skipped,
+        assertions_passed=assertions_passed,
+        assertions_failed=assertions_failed,
+        succeeded=succeeded,
+    )
 
 @dataclass(frozen=True, eq=True)
 class TestCaseResult:
@@ -331,12 +397,37 @@ def run_test_suites(
                     _l.exception('Encountered an exception running a test case')
                 else:
                     pbar.update()
-                    if test_case_result.did_pass:
-                        passed.append(test_case)
-                    else:
-                        failed.append(test_case)
+                    parsed_suffix = parse_test_case_output(test_case_result.stdout)
+                    assert parsed_suffix.succeeded == test_case_result.did_pass
 
-                        report_test_failure(test_case, test_case_result)
+                    if test_case_result.did_pass:
+                        if parsed_suffix.test_cases_passed != 1:
+                            fail_with_error(
+                                f'Test case {test_case} had unexpected test_cases_passed count '
+                                f'in the doctest output: expected 1, but found {parsed_suffix.test_cases_passed}'
+                            )
+                        elif parsed_suffix.test_cases_failed != 0:
+                            fail_with_error(
+                                f'Test case {test_case} had unexpected test_cases_failed count '
+                                f'in the doctest output: expected 0, but found {parsed_suffix.test_cases_failed}'
+                            )
+                        else:
+                            passed.append(test_case)
+                    else:
+                        if parsed_suffix.test_cases_passed != 0:
+                            fail_with_error(
+                                f'Test case {test_case} had unexpected test_cases_passed count '
+                                f'in the doctest output: expected 0, but found {parsed_suffix.test_cases_passed}'
+                            )
+                        elif parsed_suffix.test_cases_failed != 1:
+                            fail_with_error(
+                                f'Test case {test_case} had unexpected test_cases_failed count '
+                                f'in the doctest output: expected 1, but found {parsed_suffix.test_cases_failed}'
+                            )
+                        else:
+                            failed.append(test_case)
+
+                            report_test_failure(test_case, test_case_result)
 
     return TestStatistics(
         passed=tuple(passed),

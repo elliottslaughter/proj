@@ -9,7 +9,7 @@ using ::FlexFlow::Color;
 using ::nlohmann::json;
 
 TEST_SUITE(TP_TEST_SUITE) {
-  TEST_CASE("manual json deserialization") {
+  TEST_CASE("manual json deserialization (Color)") {
     json j = "RED";
 
     Color c = j.get<Color>();
@@ -17,7 +17,7 @@ TEST_SUITE(TP_TEST_SUITE) {
     CHECK(c == Color::RED);
   }
 
-  TEST_CASE("json serialization->deserialization is identity") {
+  TEST_CASE("json serialization->deserialization is identity (Color)") {
     Color c = Color::BLUE;
 
     json j = c;
@@ -26,7 +26,7 @@ TEST_SUITE(TP_TEST_SUITE) {
     CHECK(c2 == c);
   }
 
-  TEST_CASE("is hashable") {
+  TEST_CASE("is hashable (Color)") {
     Color c1 = Color::RED;
     Color c2 = Color::BLUE;
     Color c3 = Color::YELLOW;
@@ -48,7 +48,7 @@ TEST_SUITE(TP_TEST_SUITE) {
     CHECK(get_hash(c3) == get_hash(c3));
   }
 
-  TEST_CASE("rapidcheck example") {
+  TEST_CASE("rapidcheck example (Color)") {
     auto get_hash = [](Color const &c) -> std::size_t {
       return std::hash<Color>{}(c);
     };
@@ -58,13 +58,13 @@ TEST_SUITE(TP_TEST_SUITE) {
     });
   }
 
-  TEST_CASE("fmt") {
+  TEST_CASE("fmt (Color)") {
     Color c = Color::YELLOW;
     std::string correct = "\"YELLOW\"";
     CHECK(fmt::to_string(c) == correct);
   }
 
-  TEST_CASE("ostream") {
+  TEST_CASE("ostream (Color)") {
     Color c = Color::BLUE;
     std::string correct = "\"BLUE\"";
     std::ostringstream oss;

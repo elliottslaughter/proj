@@ -9,33 +9,33 @@ using ::FlexFlow::empty_t;
 using ::nlohmann::json;
 
 TEST_SUITE(TP_TEST_SUITE) {
-  TEST_CASE("default construction") {
+  TEST_CASE("default construction (empty_t)") {
     empty_t p;
   };
 
-  TEST_CASE("brace construction") {
+  TEST_CASE("brace construction (empty_t)") {
     empty_t p = { };
   };
 
-  TEST_CASE("assignment") {
+  TEST_CASE("assignment (empty_t)") {
     empty_t p = {};
     empty_t p2 = {};
 
     p = p2;
   }
 
-  TEST_CASE("copy constructor") {
+  TEST_CASE("copy constructor (empty_t)") {
     empty_t p2 = {};
     empty_t p(p2);
   }
 
-  TEST_CASE("manual json deserialization") {
+  TEST_CASE("manual json deserialization (empty_t)") {
     json j = { };
 
     empty_t p = j.get<empty_t>();
   }
 
-  TEST_CASE("json serialization->deserialization is identity") {
+  TEST_CASE("json serialization->deserialization is identity (empty_t)") {
     empty_t p = {};
 
     json j = p;
@@ -44,7 +44,7 @@ TEST_SUITE(TP_TEST_SUITE) {
     CHECK(p2 == p);
   }
 
-  TEST_CASE("is hashable") {
+  TEST_CASE("is hashable (empty_t)") {
     empty_t p1 = {};
     empty_t p2 = {};
 
@@ -55,7 +55,7 @@ TEST_SUITE(TP_TEST_SUITE) {
     CHECK(get_hash(p1) == get_hash(p2));
   }
 
-  TEST_CASE("rapidcheck example") {
+  TEST_CASE("rapidcheck example (empty_t)") {
     auto get_hash = [](empty_t const &p) -> std::size_t {
       return std::hash<empty_t>{}(p);
     };
@@ -65,13 +65,13 @@ TEST_SUITE(TP_TEST_SUITE) {
     });
   }
 
-  TEST_CASE("fmt") {
+  TEST_CASE("fmt (empty_t)") {
     empty_t p = {};
     std::string correct = "{\"__type\":\"empty_t\"}";
     CHECK(fmt::to_string(p) == correct);
   }
 
-  TEST_CASE("ostream") {
+  TEST_CASE("ostream (empty_t)") {
     empty_t p = {};
     std::string correct = "{\"__type\":\"empty_t\"}";
     std::ostringstream oss;

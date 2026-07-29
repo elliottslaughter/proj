@@ -4,6 +4,9 @@ from typing import (
     Iterable,
     BinaryIO,
 )
+from collections import (
+    Counter,
+)
 from os import (
     PathLike,
 )
@@ -26,6 +29,7 @@ from .build import (
 )
 from .testing import (
     run_test_suites,
+    list_test_cases_in_test_suites,
 )
 import logging
 from .failure import (
@@ -68,6 +72,8 @@ from .doxygen import (
 )
 import sys
 import os
+from pathlib import Path
+import string
 
 _l = logging.getLogger(__name__)
 
@@ -80,6 +86,8 @@ class Check(StrEnum):
     INCLUDE = "include"
     IFNDEF = "ifndef"
     DOXYGEN = "doxygen"
+    INVALID_TEST_CASE_NAMES = "invalid-test-names"
+    DUPLICATE_TEST_CASE_NAMES = "duplicate-test-names"
 
 def run_layout_check(
     repo_path_tree: PathTree,
@@ -164,6 +172,82 @@ def run_ifndef_check(
     if failed:
         fail_with_error("Ifndef check failed.")
 
+_TEST_NAME_CHARS = string.ascii_letters + string.digits + '-_&()<>:=,./+%![]{} '
+def is_valid_test_name(test_name: str) -> bool:
+    return all(c in _TEST_NAME_CHARS for c in test_name)
+
+def run_invalid_test_names_check(
+    config: ProjectConfig,
+    verbosity: int,
+    build_dir: Path,
+    jobs: int,
+) -> None:
+    repo_file_tree = load_filesystem_for_repo(config.repo)
+
+    build_targets(
+        repo=config.repo,
+        repo_path_tree=repo_file_tree,
+        config=config,
+        targets=set(t.build_target for t in config.all_test_targets),
+        jobs=jobs,
+        verbosity=verbosity,
+        build_dir=build_dir,
+    )
+
+
+    invalid_test_case_names = set(
+        tc.test_case_name for tc in
+        list_test_cases_in_test_suites(
+            test_suites=config.all_test_targets,
+            build_dir=build_dir,
+        )
+        if not is_valid_test_name(tc.test_case_name)
+    )
+
+    if len(invalid_test_case_names) > 0:
+        fail_with_error('\n'.join([
+            'Found invalid test case names:',
+            *invalid_test_case_names,
+        ]))
+
+def run_duplicate_test_names_check(
+    config: ProjectConfig,
+    verbosity: int,
+    build_dir: Path,
+    jobs: int,
+) -> None:
+    repo_file_tree = load_filesystem_for_repo(config.repo)
+
+    build_targets(
+        repo=config.repo,
+        repo_path_tree=repo_file_tree,
+        config=config,
+        targets=set(t.build_target for t in config.all_test_targets),
+        jobs=jobs,
+        verbosity=verbosity,
+        build_dir=build_dir,
+    )
+
+    test_case_counts = Counter([
+        tc.test_case_name for tc in
+        list_test_cases_in_test_suites(
+            test_suites=config.all_test_targets,
+            build_dir=build_dir,
+        )
+    ])
+
+    reused_test_case_names = list(sorted(
+        test_case_name for test_case_name, count in test_case_counts.items()
+        if count > 1
+    ))
+
+    if len(reused_test_case_names) > 0:
+        fail_with_error('\n'.join([
+            'Found duplicate test case names:',
+            *reused_test_case_names,
+        ]))
+
+
 def run_doxygen_check(
     config: ProjectConfig,
     verbosity: int,
@@ -217,6 +301,20 @@ def run_check(config: ProjectConfig, check: Check, verbosity: int, jobs: int) ->
         )
     elif check == Check.DOXYGEN:
         run_doxygen_check(config, verbosity=verbosity)
+    elif check == Check.DUPLICATE_TEST_CASE_NAMES:
+        run_duplicate_test_names_check(
+            config,
+            verbosity=verbosity,
+            build_dir=config.debug_build_dir,
+            jobs=jobs,
+        )
+    elif check == Check.INVALID_TEST_CASE_NAMES:
+        run_invalid_test_names_check(
+            config,
+            verbosity=verbosity,
+            build_dir=config.debug_build_dir,
+            jobs=jobs,
+        )
     else:
         raise ValueError(f'Invalid check: {check!r}')
 
@@ -271,6 +369,22 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
         jobs=jobs,
         verbosity=verbosity,
         build_dir=config.coverage_build_dir,
+    )
+
+    _l.info("Checking for invalid tests in %s...", config.all_test_targets)
+    run_invalid_test_names_check(
+        config=config,
+        verbosity=verbosity,
+        build_dir=config.coverage_build_dir,
+        jobs=jobs,
+    )
+
+    _l.info("Checking for duplicate tests in %s...", config.all_test_targets)
+    run_duplicate_test_names_check(
+        config=config,
+        verbosity=verbosity,
+        build_dir=config.coverage_build_dir,
+        jobs=jobs,
     )
 
     _l.info("Running tests %s", config.all_cpu_test_targets)

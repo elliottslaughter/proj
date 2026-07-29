@@ -11,7 +11,7 @@ using namespace ::FlexFlow;
 using ::nlohmann::json;
 
 TEST_SUITE(TP_TEST_SUITE) {
-  TEST_CASE("MyList<T>") {
+  TEST_CASE("MyIntList") {
     SUBCASE("make empty list") {
       MyIntList l = MyIntList{MyListEmpty{}};
     }

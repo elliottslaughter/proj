@@ -460,6 +460,14 @@ def get_test_suite_names(
         )
 
 
+def escape_test_case_name(test_case_name: str) -> str:
+    return (
+        test_case_name
+        .replace('\\', '\\\\')
+        .replace(',', '\\,')
+        .replace('*', '\\*')
+    )
+
 @dataclass(frozen=True, order=True)
 class GenericTestCaseTarget:
     test_suite: GenericTestSuiteTarget
@@ -486,9 +494,10 @@ class GenericTestCaseTarget:
     @property
     def run_target(self) -> GenericRunTarget:
         generic_run_target = self.test_suite.run_target
+
         return dataclasses.replace(
             generic_run_target,
-            args=tuple([f"--test-case={self.test_case_name}"]),
+            args=tuple([f"--test-case={escape_test_case_name(self.test_case_name)}"]),
         )
 
 
@@ -511,7 +520,7 @@ class CpuTestCaseTarget:
         return CpuRunTarget(
             dataclasses.replace(
                 generic_run_target,
-                args=tuple([f"--test-case={self.test_case_name}"]),
+                args=tuple([f"--test-case={escape_test_case_name(self.test_case_name)}"]),
             ),
         )
 
@@ -535,7 +544,7 @@ class CudaTestCaseTarget:
         return CudaRunTarget(
             dataclasses.replace(
                 generic_run_target,
-                args=tuple([f"--test-case={self.test_case_name}"]),
+                args=tuple([f"--test-case={escape_test_case_name(self.test_case_name)}"]),
             ),
         )
 
