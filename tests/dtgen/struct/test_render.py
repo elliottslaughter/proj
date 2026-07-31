@@ -25,7 +25,7 @@ def test_dtgen_struct_render_fmt_decl_with_json_enabled() -> None:
         name='MyStruct',
         fields=[],
         features=frozenset([
-            Feature.JSON,
+            Feature.JSON_SERIALIZE,
             Feature.FMT,
         ]),
         docstring=None,
@@ -75,7 +75,7 @@ def test_dtgen_struct_render_fmt_impl_with_json_enabled() -> None:
         ],
         features=frozenset([
             Feature.FMT,
-            Feature.JSON,
+            Feature.JSON_SERIALIZE,
         ]),
         docstring=None,
     )
@@ -235,7 +235,8 @@ def test_dtgen_struct_header_with_json_and_fmt_enabled() -> None:
             ),
         ],
         features=frozenset([
-            Feature.JSON,
+            Feature.JSON_SERIALIZE,
+            Feature.JSON_DESERIALIZE,
             Feature.FMT,
         ]),
         docstring=None,
@@ -247,10 +248,10 @@ def test_dtgen_struct_header_with_json_and_fmt_enabled() -> None:
 
     correct = cpp_normalize(
         '''
-        #include <iostream>
-        #include <nlohmann/json.hpp>
-        #include <ostream>
         #include <fmt/format.h>
+        #include <iostream>
+        #include <ostream>
+        #include <nlohmann/json.hpp>
 
         namespace Example {
 

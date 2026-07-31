@@ -10,22 +10,24 @@ from typing import (
     FrozenSet,
     Any,
     Mapping,
+    List,
 )
 from proj.includes import (
     IncludeSpec,
     parse_include_spec,
 )
 from proj.json import Json
+import itertools
 
 
 class Feature(Enum):
-    JSON = auto()
+    JSON_SERIALIZE = auto()
+    JSON_DESERIALIZE = auto()
     EQ = auto()
     ORD = auto()
     HASH = auto()
     FMT = auto()
     RAPIDCHECK = auto()
-    # SERIALIZE = auto()
 
     def json(self) -> Json:
         return self.name
@@ -87,21 +89,21 @@ class StructSpec:
         }
 
 
-def parse_feature(raw: str) -> Feature:
+def parse_feature(raw: str) -> List[Feature]:
     if raw == "json":
-        return Feature.JSON
+        return [Feature.JSON_SERIALIZE, Feature.JSON_DESERIALIZE]
+    elif raw == "json_serialize":
+        return [Feature.JSON_SERIALIZE]
     elif raw == "eq":
-        return Feature.EQ
+        return [Feature.EQ]
     elif raw == "ord":
-        return Feature.ORD
+        return [Feature.ORD]
     elif raw == "hash":
-        return Feature.HASH
+        return [Feature.HASH]
     elif raw == "rapidcheck":
-        return Feature.RAPIDCHECK
+        return [Feature.RAPIDCHECK]
     elif raw == "fmt":
-        return Feature.FMT
-    # elif raw == 'serialize':
-    #     return Feature.SERIALIZE
+        return [Feature.FMT]
     else:
         raise ValueError(f"Unknown feature: {raw}")
 
@@ -159,7 +161,7 @@ def parse_struct_spec(raw: Mapping[str, Any]) -> StructSpec:
         template_params=raw.get(StructSpecKeys.TEMPLATE_PARAMS, ()),
         name=raw[StructSpecKeys.NAME],
         fields=[parse_field_spec(field) for field in raw[StructSpecKeys.FIELDS]],
-        features=frozenset([parse_feature(feature) for feature in raw[StructSpecKeys.FEATURES]]),
+        features=frozenset(itertools.chain(*[parse_feature(feature) for feature in raw[StructSpecKeys.FEATURES]])),
         docstring=raw.get(StructSpecKeys.DOCSTRING, None),
     )
 

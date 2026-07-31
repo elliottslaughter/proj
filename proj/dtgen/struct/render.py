@@ -36,7 +36,7 @@ def header_includes_for_feature(feature: Feature) -> Sequence[IncludeSpec]:
         return [IncludeSpec(path=PurePath("functional"), system=True)]
     elif feature in [Feature.ORD, Feature.EQ]:
         return [IncludeSpec(path=PurePath("tuple"), system=True)]
-    elif feature == Feature.JSON:
+    elif feature in [Feature.JSON_SERIALIZE, Feature.JSON_DESERIALIZE]:
         return [
             IncludeSpec(path=PurePath("nlohmann/json.hpp"), system=True),
             IncludeSpec(path=PurePath("iostream"), system=True)
@@ -300,35 +300,31 @@ def render_json_decl(spec: StructSpec, f: TextIO) -> None:
             with angles(f):
                 render_typename(spec=spec, qualified=True, f=f)
             with braces(f):
-                f.write("static ")
-                render_typename(spec=spec, qualified=True, f=f)
-                f.write(" from_json(json const &);\n")
-                f.write("static void to_json(json &, ")
-                render_typename(spec=spec, qualified=True, f=f)
-                f.write(" const &);\n")
+                if Feature.JSON_DESERIALIZE in spec.features:
+                    f.write("static ")
+                    render_typename(spec=spec, qualified=True, f=f)
+                    f.write(" from_json(json const &);\n")
+                if Feature.JSON_SERIALIZE in spec.features:
+                    f.write("static void to_json(json &, ")
+                    render_typename(spec=spec, qualified=True, f=f)
+                    f.write(" const &);\n")
 
-
-def render_json_checks(spec: StructSpec, f: TextIO) -> None:
-    assert len(spec.template_params) == 0
-
+def render_json_serialize_impl(spec: StructSpec, f: TextIO) -> None:
     with render_namespace_block("nlohmann", f):
-        with semicolon(f):
+        if len(spec.template_params) > 0:
+            render_template_abs(spec.template_params, f)
+        f.write("void adl_serializer")
+        with angles(f):
+            render_typename(spec=spec, qualified=True, f=f)
+        f.write("::to_json(json &j, ")
+        render_typename(spec=spec, qualified=True, f=f)
+        f.write(" const &v) ")
+        with braces(f):
+            f.write(f'j["__type"] = "{spec.name}";\n')
             for field in spec.fields:
-                f.write("static_assert")
-                with parens(f):
-                    f.write("::FlexFlow::is_json_serializable_v")
-                    with angles(f):
-                        f.write(field.type_)
-                    f.write(
-                        f', "Field {field.name} of type {field.type_} should be json-serializeable, but is not"'
-                    )
-    # with render_namespace_block('nlohmann', f):
-    #     with semicolon(f):
-    #         for field in spec.fields:
-    #             f.write('static_assert')
+                f.write(f'j["{field.json_key}"] = v.{get_field_accessor(field)};\n')
 
-
-def render_json_impl(spec: StructSpec, f: TextIO) -> None:
+def render_json_deserialize_impl(spec: StructSpec, f: TextIO) -> None:
     with render_namespace_block("nlohmann", f):
         if len(spec.template_params) > 0:
             render_template_abs(spec.template_params, f)
@@ -346,18 +342,6 @@ def render_json_impl(spec: StructSpec, f: TextIO) -> None:
                         f.write(
                             f'j.at("{field.json_key}").template get<{field.type_}>()'
                         )
-        if len(spec.template_params) > 0:
-            render_template_abs(spec.template_params, f)
-        f.write("void adl_serializer")
-        with angles(f):
-            render_typename(spec=spec, qualified=True, f=f)
-        f.write("::to_json(json &j, ")
-        render_typename(spec=spec, qualified=True, f=f)
-        f.write(" const &v) ")
-        with braces(f):
-            f.write(f'j["__type"] = "{spec.name}";\n')
-            for field in spec.fields:
-                f.write(f'j["{field.json_key}"] = v.{get_field_accessor(field)};\n')
 
 
 def render_debug_to_string_decl(spec: StructSpec, f: TextIO) -> None:
@@ -396,7 +380,7 @@ def render_fmt_impl(spec: StructSpec, f: TextIO) -> None:
         if len(spec.template_params) > 0:
             render_template_abs(spec.template_params, f)
 
-        if Feature.JSON in spec.features:
+        if Feature.JSON_SERIALIZE in spec.features:
             f.write("std::string format_as")
             with parens(f):
                 render_typename(spec=spec, qualified=False, f=f)
@@ -564,9 +548,12 @@ def render_impls(spec: StructSpec, f: TextIO) -> None:
     if Feature.HASH in spec.features:
         f.write("\n")
         render_hash_impl(spec, f)
-    if Feature.JSON in spec.features:
+    if Feature.JSON_SERIALIZE in spec.features:
         f.write("\n")
-        render_json_impl(spec, f)
+        render_json_serialize_impl(spec, f)
+    if Feature.JSON_DESERIALIZE in spec.features:
+        f.write("\n")
+        render_json_deserialize_impl(spec, f)
     if Feature.RAPIDCHECK in spec.features:
         f.write("\n")
         render_rapidcheck_impl(spec, f)
@@ -597,7 +584,7 @@ def render_header(spec: StructSpec, f: TextIO) -> None:
         f.write("\n")
         render_hash_decl(spec, f)
 
-    if Feature.JSON in spec.features:
+    if Feature.JSON_SERIALIZE in spec.features or Feature.JSON_DESERIALIZE in spec.features:
         f.write("\n")
         render_json_decl(spec, f)
 

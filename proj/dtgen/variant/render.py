@@ -42,7 +42,7 @@ from pathlib import PurePath
 def header_includes_for_feature(feature: Feature) -> Sequence[IncludeSpec]:
     if feature == Feature.HASH:
         return [IncludeSpec(path=PurePath("functional"), system=True)]
-    elif feature == Feature.JSON:
+    elif feature in [Feature.JSON_SERIALIZE, Feature.JSON_DESERIALIZE]:
         return [
             IncludeSpec(path=PurePath("nlohmann/json.hpp"), system=True),
         ]
@@ -468,23 +468,54 @@ def render_json_decl(spec: VariantSpec, f: TextIO) -> None:
             is_template_specialization=True,
             f=f,
         ):
-            render_function_declaration(
-                is_static=True,
-                return_type=typename,
-                name="from_json",
-                args=["json const &"],
-                f=f,
-            )
-            render_function_declaration(
-                is_static=True,
-                return_type="void",
-                name="to_json",
-                args=["json &", f"{typename} const &"],
-                f=f,
-            )
+            if Feature.JSON_DESERIALIZE in spec.features:
+                render_function_declaration(
+                    is_static=True,
+                    return_type=typename,
+                    name="from_json",
+                    args=["json const &"],
+                    f=f,
+                )
+            if Feature.JSON_SERIALIZE in spec.features:
+                render_function_declaration(
+                    is_static=True,
+                    return_type="void",
+                    name="to_json",
+                    args=["json &", f"{typename} const &"],
+                    f=f,
+                )
 
+def render_json_serialize_impl(spec: VariantSpec, f: TextIO) -> None:
+    typename = get_typename(spec=spec, qualified=True)
 
-def render_json_impl(spec: VariantSpec, f: TextIO) -> None:
+    with render_namespace_block("nlohmann", f):
+        with render_function_definition(
+            template_params=spec.template_params,
+            return_type="void",
+            name=f"adl_serializer<{typename}>::to_json",
+            args=["json &j", f"{typename} const &x"],
+            f=f,
+        ):
+            with sline(f):
+                f.write(f'j["__type"] = "{spec.name}"')
+            with render_switch_block(cond="x.index()", f=f):
+                for idx, value in enumerate(spec.values):
+                    f.write(f"case {idx}:")
+                    with braces(f):
+                        with sline(f):
+                            f.write(f'j["type"] = "{value.json_key}"')
+                        with sline(f):
+                            f.write(f'j["value"] = x.template get<{value.type_}>()')
+                        with sline(f):
+                            f.write("break")
+                f.write("default:")
+                with braces(f):
+                    with sline(f):
+                        f.write(
+                            f'throw std::runtime_error(fmt::format("Unknown index {{}} for type {spec.name}", x.index()))'
+                        )
+
+def render_json_deserialize_impl(spec: VariantSpec, f: TextIO) -> None:
     typename = get_typename(spec=spec, qualified=True)
 
     with render_namespace_block("nlohmann", f):
@@ -512,32 +543,6 @@ def render_json_impl(spec: VariantSpec, f: TextIO) -> None:
                     f.write(
                         'throw std::runtime_error(fmt::format("Unknown type key {}", key))'
                     )
-
-        with render_function_definition(
-            template_params=spec.template_params,
-            return_type="void",
-            name=f"adl_serializer<{typename}>::to_json",
-            args=["json &j", f"{typename} const &x"],
-            f=f,
-        ):
-            with sline(f):
-                f.write(f'j["__type"] = "{spec.name}"')
-            with render_switch_block(cond="x.index()", f=f):
-                for idx, value in enumerate(spec.values):
-                    f.write(f"case {idx}:")
-                    with braces(f):
-                        with sline(f):
-                            f.write(f'j["type"] = "{value.json_key}"')
-                        with sline(f):
-                            f.write(f'j["value"] = x.template get<{value.type_}>()')
-                        with sline(f):
-                            f.write("break")
-                f.write("default:")
-                with braces(f):
-                    with sline(f):
-                        f.write(
-                            f'throw std::runtime_error(fmt::format("Unknown index {{}} for type {spec.name}", x.index()))'
-                        )
 
 
 def render_fmt_decl(spec: VariantSpec, f: TextIO) -> None:
@@ -594,7 +599,7 @@ def render_fmt_impl(spec: VariantSpec, f: TextIO) -> None:
             args=[f"{typename} const &x"],
             f=f,
         ):
-            if Feature.JSON in spec.features:
+            if Feature.JSON_SERIALIZE in spec.features:
                 with sline(f):
                     f.write("::nlohmann::json j = x")
                 with sline(f):
@@ -751,7 +756,7 @@ def render_decls(spec: VariantSpec, f: TextIO) -> None:
     if Feature.HASH in spec.features:
         render_hash_decl(spec=spec, f=f)
 
-    if Feature.JSON in spec.features:
+    if Feature.JSON_SERIALIZE in spec.features or Feature.JSON_DESERIALIZE in spec.features:
         render_json_decl(spec=spec, f=f)
 
     if Feature.RAPIDCHECK in spec.features:
@@ -793,8 +798,11 @@ def render_impls(spec: VariantSpec, f: TextIO) -> None:
     if Feature.HASH in spec.features:
         render_hash_impl(spec=spec, f=f)
 
-    if Feature.JSON in spec.features:
-        render_json_impl(spec=spec, f=f)
+    if Feature.JSON_SERIALIZE in spec.features:
+        render_json_serialize_impl(spec=spec, f=f)
+
+    if Feature.JSON_DESERIALIZE in spec.features:
+        render_json_deserialize_impl(spec=spec, f=f)
 
     if Feature.RAPIDCHECK in spec.features:
         render_rapidcheck_impl(spec=spec, f=f)

@@ -186,6 +186,10 @@ void to_json(::nlohmann::json &j, Color x) {
   }
 }
 
+} // namespace FlexFlow
+
+namespace FlexFlow {
+
 void from_json(::nlohmann::json const &j, Color &x) {
   std::string as_str = j.get<std::string>();
   if (as_str == "RED") {
@@ -228,7 +232,8 @@ def test_generate_source_contents() -> None:
             Feature.HASH,
             Feature.FMT,
             Feature.RAPIDCHECK,
-            Feature.JSON,
+            Feature.JSON_SERIALIZE,
+            Feature.JSON_DESERIALIZE,
         }),
         values = [
             ValueSpec(

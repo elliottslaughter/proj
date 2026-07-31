@@ -5,6 +5,7 @@ from typing import (
     Any,
     Mapping,
     FrozenSet,
+    List,
 )
 from proj.strenum import StrEnum
 from enum import (
@@ -14,10 +15,11 @@ from enum import (
 from pathlib import Path
 import proj.toml as toml
 from proj.json import Json
-
+import itertools
 
 class Feature(Enum):
-    JSON = auto()
+    JSON_DESERIALIZE = auto()
+    JSON_SERIALIZE = auto()
     HASH = auto()
     FMT = auto()
     RAPIDCHECK = auto()
@@ -68,15 +70,17 @@ class EnumSpec:
         }
 
 
-def parse_feature(raw: str) -> Feature:
+def parse_feature(raw: str) -> List[Feature]:
     if raw == "json":
-        return Feature.JSON
+        return [Feature.JSON_SERIALIZE, Feature.JSON_DESERIALIZE]
+    elif raw == "json_serialize":
+        return [Feature.JSON_SERIALIZE]
     elif raw == "rapidcheck":
-        return Feature.RAPIDCHECK
+        return [Feature.RAPIDCHECK]
     elif raw == "fmt":
-        return Feature.FMT
+        return [Feature.FMT]
     elif raw == "hash":
-        return Feature.HASH
+        return [Feature.HASH]
     else:
         raise ValueError(f"Unknown feature: {raw}")
 
@@ -114,7 +118,7 @@ def parse_enum_spec(raw: Mapping[str, Any]) -> EnumSpec:
         namespace=raw.get(EnumSpecKeys.NAMESPACE, None),
         name=raw[EnumSpecKeys.NAME],
         values=[parse_value_spec(value) for value in raw[EnumSpecKeys.VALUES]],
-        features=frozenset([parse_feature(feature) for feature in raw[EnumSpecKeys.FEATURES]]),
+        features=frozenset(itertools.chain(*[parse_feature(feature) for feature in raw[EnumSpecKeys.FEATURES]])),
         docstring=raw.get(EnumSpecKeys.DOCSTRING, None),
     )
 

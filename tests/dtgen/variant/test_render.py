@@ -176,7 +176,7 @@ def test_dtgen_variant_render_fmt_decl_with_json_enabled() -> None:
         ],
         features=frozenset([
             Feature.FMT,
-            Feature.JSON,
+            Feature.JSON_SERIALIZE,
         ]),
         explicit_constructors=True,
         docstring=None,
@@ -228,7 +228,7 @@ def test_dtgen_variant_render_fmt_impl_with_json_enabled() -> None:
         ],
         features=frozenset([
             Feature.FMT,
-            Feature.JSON,
+            Feature.JSON_SERIALIZE,
         ]),
         explicit_constructors=True,
         docstring=None,

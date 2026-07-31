@@ -116,7 +116,7 @@ def test_dtgen_enum_render_fmt_decl_with_json_enabled() -> None:
         ],
         features=frozenset([
             Feature.FMT,
-            Feature.JSON,
+            Feature.JSON_SERIALIZE,
         ]),
         docstring=None,
     )
@@ -152,7 +152,7 @@ def test_dtgen_enum_render_fmt_impl_with_json_enabled() -> None:
         ],
         features=frozenset([
             Feature.FMT,
-            Feature.JSON,
+            Feature.JSON_SERIALIZE,
         ]),
         docstring=None,
     )

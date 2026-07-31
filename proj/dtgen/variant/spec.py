@@ -10,6 +10,7 @@ from typing import (
     Sequence,
     Any,
     Mapping,
+    List,
 )
 from proj.includes import (
     IncludeSpec,
@@ -18,13 +19,15 @@ from proj.includes import (
 import proj.toml as toml
 from pathlib import Path
 from proj.json import Json
+import itertools
 
 
 class Feature(Enum):
     EQ = auto()
     ORD = auto()
     HASH = auto()
-    JSON = auto()
+    JSON_SERIALIZE = auto()
+    JSON_DESERIALIZE = auto()
     FMT = auto()
     RAPIDCHECK = auto()
 
@@ -113,19 +116,21 @@ class VariantSpec:
         }
 
 
-def parse_feature(raw: str) -> Feature:
+def parse_feature(raw: str) -> List[Feature]:
     if raw == "eq":
-        return Feature.EQ
+        return [Feature.EQ]
     elif raw == "ord":
-        return Feature.ORD
+        return [Feature.ORD]
     elif raw == "hash":
-        return Feature.HASH
+        return [Feature.HASH]
     elif raw == "json":
-        return Feature.JSON
+        return [Feature.JSON_SERIALIZE, Feature.JSON_DESERIALIZE]
+    elif raw == "json_serialize":
+        return [Feature.JSON_SERIALIZE]
     elif raw == "fmt":
-        return Feature.FMT
+        return [Feature.FMT]
     elif raw == "rapidcheck":
-        return Feature.RAPIDCHECK
+        return [Feature.RAPIDCHECK]
     else:
         raise ValueError(f"Unknown feature: {raw}")
 
@@ -187,7 +192,7 @@ def parse_variant_spec(raw: Mapping[str, Any]) -> VariantSpec:
         template_params=raw.get(VariantSpecKeys.TEMPLATE_PARAMS, ()),
         name=raw[VariantSpecKeys.NAME],
         values=[parse_value_spec(value) for value in raw[VariantSpecKeys.VALUES]],
-        features=frozenset([parse_feature(feature) for feature in raw[VariantSpecKeys.FEATURES]]),
+        features=frozenset(itertools.chain(*[parse_feature(feature) for feature in raw[VariantSpecKeys.FEATURES]])),
         docstring=raw.get(VariantSpecKeys.DOCSTRING, None),
     )
 
