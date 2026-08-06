@@ -18,6 +18,7 @@ def find_files(config: ProjectConfig) -> Iterator[Path]:
     blacklist = [
         config.base / "deps",
         config.base / "build",
+        config.base / "deploy",
     ]
 
     def is_blacklisted(p: Path) -> bool:
