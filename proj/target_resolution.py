@@ -49,6 +49,7 @@ def fully_resolve_run_target(
     jobs: int,
     verbosity: int,
     skip_gpu: bool,
+    redirect_build_stdout_to_stderr: bool,
 ) -> Union[CpuRunTarget, CudaRunTarget]:
     resolved_target: Union[
         CpuBinTarget,
@@ -99,6 +100,7 @@ def fully_resolve_run_target(
         jobs=jobs,
         verbosity=verbosity,
         build_dir=build_dir,
+        redirect_build_stdout_to_stderr=redirect_build_stdout_to_stderr,
     )
 
     fully_resolved_target: Union[

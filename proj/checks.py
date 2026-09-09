@@ -192,6 +192,7 @@ def run_invalid_test_names_check(
         jobs=jobs,
         verbosity=verbosity,
         build_dir=build_dir,
+        redirect_build_stdout_to_stderr=False,
     )
 
 
@@ -226,6 +227,7 @@ def run_duplicate_test_names_check(
         jobs=jobs,
         verbosity=verbosity,
         build_dir=build_dir,
+        redirect_build_stdout_to_stderr=False,
     )
 
     test_case_counts = Counter([
@@ -337,6 +339,7 @@ def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMt
         jobs=jobs,
         verbosity=verbosity,
         build_dir=config.debug_build_dir,
+        redirect_build_stdout_to_stderr=False,
     )
 
 
@@ -369,6 +372,7 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
         jobs=jobs,
         verbosity=verbosity,
         build_dir=config.coverage_build_dir,
+        redirect_build_stdout_to_stderr=False,
     )
 
     _l.info("Checking for invalid tests in %s...", config.all_test_targets)
@@ -428,6 +432,7 @@ def run_gpu_ci(config: ProjectConfig, verbosity: int, jobs: int) -> None:
         jobs=jobs,
         verbosity=verbosity,
         build_dir=config.debug_build_dir,
+        redirect_build_stdout_to_stderr=False,
     )
 
     test_suites = list(sorted(config.all_cuda_test_targets))

@@ -279,6 +279,7 @@ def main_build(args: MainBuildArgs) -> int:
         jobs=args.jobs,
         verbosity=args.verbosity,
         build_dir=build_dir,
+        redirect_build_stdout_to_stderr=False,
     )
     return 0
 
@@ -347,6 +348,7 @@ def main_benchmark(args: MainBenchmarkArgs) -> int:
         jobs=args.jobs,
         verbosity=args.verbosity,
         build_dir=config.release_build_dir,
+        redirect_build_stdout_to_stderr=True,
     )
 
     benchmark_result = call_benchmarks(
@@ -392,6 +394,7 @@ def main_run(args: MainRunArgs) -> int:
         jobs=args.jobs,
         verbosity=args.verbosity,
         skip_gpu=args.skip_gpu,
+        redirect_build_stdout_to_stderr=True,
     )
 
     has_cuda = check_if_machine_supports_cuda()
@@ -405,7 +408,7 @@ def main_run(args: MainRunArgs) -> int:
 
     cmd = [str(binary_path), *run_target.args, *args.target_run_args]
     result = subprocess.run(cmd)
-    print(result)
+    _l.info('Command completed with exit code %d', result.returncode)
     _l.debug('Finished executing %s', main_run.__name__)
     return result.returncode
 
@@ -441,6 +444,7 @@ def main_profile(args: MainProfileArgs) -> int:
         jobs=args.jobs,
         verbosity=args.verbosity,
         skip_gpu=args.skip_gpu,
+        redirect_build_stdout_to_stderr=True,
     )
 
     has_cuda = check_if_machine_supports_cuda()
@@ -617,6 +621,7 @@ def main_test(args: MainTestArgs) -> int:
         jobs=args.jobs,
         verbosity=args.verbosity,
         build_dir=build_dir,
+        redirect_build_stdout_to_stderr=True,
     )
 
     def require_test_suite(

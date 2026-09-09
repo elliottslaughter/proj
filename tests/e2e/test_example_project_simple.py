@@ -193,6 +193,7 @@ def built_project_instance(targets: Iterable[BuildTarget], build_mode: BuildMode
             jobs=1,
             verbosity=MAX_VERBOSITY,
             build_dir=get_build_dir(config, build_mode),
+            redirect_build_stdout_to_stderr=False,
         )
         yield d
 

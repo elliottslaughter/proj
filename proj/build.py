@@ -29,6 +29,7 @@ def build_targets(
     jobs: int,
     verbosity: int,
     build_dir: Path,
+    redirect_build_stdout_to_stderr: bool,
 ) -> None:
     _targets = list(sorted(set([t.name for t in targets])))
     _l.info("Building targets: %s", _targets)
@@ -42,6 +43,9 @@ def build_targets(
         cmd_bin = 'ninja'
     else:
         raise ValueError(f'Unrecognized build tool {config.build_tool!r}')
+
+    stdout = sys.stderr if redirect_build_stdout_to_stderr else sys.stdout
+    stderr = sys.stderr
 
     result = subprocess.run(
         [
@@ -57,7 +61,8 @@ def build_targets(
             "CCACHE_BASEDIR": str(config.base),
             **({"VERBOSE": "1"} if verbosity <= logging.DEBUG else {}),
         },
-        # stderr=sys.stdout,
+        stdout=stdout,
+        stderr=stderr,
     )
     # sys.stdout.flush()
     result.check_returncode()
