@@ -6,6 +6,7 @@ from typing import (
     Tuple,
     List,
     Dict,
+    Optional,
 )
 from .targets import (
     CpuTestSuiteTarget,
@@ -193,13 +194,14 @@ class DoctestTestCaseExecutionSuffix:
 def strip_terminal_escapes(b: bytes) -> bytes:
     return re.sub(b'\x1b[^m]+m', b'', b)
 
-def parse_test_case_output(output: bytes) -> DoctestTestCaseExecutionSuffix:
+def parse_test_case_output(output: bytes) -> Optional[DoctestTestCaseExecutionSuffix]:
     doctest_lines = strip_terminal_escapes(
         b'\n'.join(output.strip().splitlines()[-3:])
     )
 
     m = _DOCTEST_TEST_OUTPUT_SUFFIX_RE.fullmatch(doctest_lines)
-    assert m is not None, doctest_lines
+    if m is None:
+        return None
 
     test_cases_executed = int(m.group('test_cases_executed'))
     test_cases_passed = int(m.group('test_cases_passed'))
@@ -398,6 +400,14 @@ def run_test_suites(
                 else:
                     pbar.update()
                     parsed_suffix = parse_test_case_output(test_case_result.stdout)
+                    if parsed_suffix is None:
+                        fail_with_error('\n'.join([
+                            f'Failed to parse doctest output of testcase {test_case}.',
+                            'stdout:',
+                            test_case_result.stdout.decode('utf8'),
+                            'stderr:',
+                            test_case_result.stderr.decode('utf8'),
+                        ]))
                     assert parsed_suffix.succeeded == test_case_result.did_pass
 
                     if test_case_result.did_pass:
