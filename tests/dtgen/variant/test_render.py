@@ -346,7 +346,9 @@ def test_dtgen_variant_render_header() -> None:
       }
 
       type_a const & require_a() const;
+      type_a & require_a();
       type_b const & require_b() const;
+      type_b & require_b();
       std::optional<type_a> try_require_a() const;
       std::optional<type_b> try_require_b() const;
       bool is_a() const;
@@ -408,7 +410,19 @@ def test_dtgen_variant_render_source() -> None:
       return std::get<type_a>(this->raw_variant);
     }
 
+    type_a &MyVariant::require_a() {
+      bool holds_expected = std::holds_alternative<type_a>(this->raw_variant);
+      ASSERT(holds_expected, "Expected type_a");
+      return std::get<type_a>(this->raw_variant);
+    }
+
     type_b const &MyVariant::require_b() const {
+      bool holds_expected = std::holds_alternative<type_b>(this->raw_variant);
+      ASSERT(holds_expected, "Expected type_b");
+      return std::get<type_b>(this->raw_variant);
+    }
+
+    type_b &MyVariant::require_b() {
       bool holds_expected = std::holds_alternative<type_b>(this->raw_variant);
       ASSERT(holds_expected, "Expected type_b");
       return std::get<type_b>(this->raw_variant);
@@ -560,7 +574,9 @@ def test_render_indirect_variant_header() -> None:
       }
 
       type_a const & require_a() const;
+      type_a & require_a();
       type_b const & require_b() const;
+      type_b & require_b();
       std::optional<type_a> try_require_a() const;
       std::optional<type_b> try_require_b() const;
       bool is_a() const;
@@ -632,7 +648,19 @@ def test_render_indirect_variant_source() -> None:
       return std::get<type_a>(this->raw_variant);
     }
 
+    type_a &MyVariant::require_a() {
+      bool holds_expected = std::holds_alternative<type_a>(this->raw_variant);
+      ASSERT(holds_expected, "Expected type_a");
+      return std::get<type_a>(this->raw_variant);
+    }
+
     type_b const &MyVariant::require_b() const {
+      bool holds_expected = std::holds_alternative<std::shared_ptr<type_b>>(this->raw_variant);
+      ASSERT(holds_expected, "Expected type_b");
+      return *std::get<std::shared_ptr<type_b>>(this->raw_variant);
+    }
+
+    type_b &MyVariant::require_b() {
       bool holds_expected = std::holds_alternative<std::shared_ptr<type_b>>(this->raw_variant);
       ASSERT(holds_expected, "Expected type_b");
       return *std::get<std::shared_ptr<type_b>>(this->raw_variant);
@@ -803,7 +831,9 @@ def test_render_fwd_decl_variant_header() -> None:
       }
 
       type_a const & require_a() const;
+      type_a & require_a();
       type_b const & require_b() const;
+      type_b & require_b();
       std::optional<type_a> try_require_a() const;
       std::optional<type_b> try_require_b() const;
       bool is_a() const;
@@ -932,7 +962,9 @@ def test_render_post_include_variant_header() -> None:
       }
 
       type_a const & require_a() const;
+      type_a & require_a();
       type_b const & require_b() const;
+      type_b & require_b();
       std::optional<type_a> try_require_a() const;
       std::optional<type_b> try_require_b() const;
       bool is_a() const;

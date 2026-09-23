@@ -199,13 +199,17 @@ def render_is_method_impls(spec: VariantSpec, f: TextIO) -> None:
 def render_require_method_decls(spec: VariantSpec, f: TextIO) -> None:
     for value in spec.values:
         if value.method_key is not None:
-            render_function_declaration(
-                name=f"require_{value.method_key}",
-                return_type=f"{value.type_} const &",
-                args=[],
-                is_const=True,
-                f=f,
-            )
+            for (is_const, return_type) in [
+                (True, f'{value.type_} const &'),
+                (False, f'{value.type_} &'),
+            ]:
+                render_function_declaration(
+                    name=f"require_{value.method_key}",
+                    return_type=return_type,
+                    args=[],
+                    is_const=is_const,
+                    f=f,
+                )
 
 
 def render_require_method_impls(spec: VariantSpec, f: TextIO) -> None:
@@ -213,26 +217,30 @@ def render_require_method_impls(spec: VariantSpec, f: TextIO) -> None:
 
     for value in spec.values:
         if value.method_key is not None:
-            with render_function_definition(
-                template_params=spec.template_params,
-                return_type=f"{value.type_} const &",
-                name=f"{typename}::require_{value.method_key}",
-                args=[],
-                is_const=True,
-                f=f,
-            ):
-                storage_type = get_storage_type_for_value_spec(value)
-                with sline(f):
-                    f.write(f"bool holds_expected = std::holds_alternative<{storage_type}>(this->raw_variant)")
-                with sline(f):
-                    f.write(f"ASSERT(holds_expected, \"Expected {value.type_}\")")
+            for (is_const, return_type) in [
+                (True, f'{value.type_} const &'),
+                (False, f'{value.type_} &'),
+            ]:
+                with render_function_definition(
+                    template_params=spec.template_params,
+                    return_type=return_type,
+                    name=f"{typename}::require_{value.method_key}",
+                    args=[],
+                    is_const=is_const,
+                    f=f,
+                ):
+                    storage_type = get_storage_type_for_value_spec(value)
+                    with sline(f):
+                        f.write(f"bool holds_expected = std::holds_alternative<{storage_type}>(this->raw_variant)")
+                    with sline(f):
+                        f.write(f"ASSERT(holds_expected, \"Expected {value.type_}\")")
 
-                if value.indirect:
-                    with sline(f=f):
-                        f.write(f"return *std::get<{storage_type}>(this->raw_variant)")
-                else:
-                    with sline(f=f):
-                        f.write(f"return std::get<{storage_type}>(this->raw_variant)")
+                    if value.indirect:
+                        with sline(f=f):
+                            f.write(f"return *std::get<{storage_type}>(this->raw_variant)")
+                    else:
+                        with sline(f=f):
+                            f.write(f"return std::get<{storage_type}>(this->raw_variant)")
 
 
 def render_try_require_method_decls(spec: VariantSpec, f: TextIO) -> None:
