@@ -30,11 +30,11 @@ def check_call(command, **kwargs):
 
     if kwargs.get("shell", False):
         assert isinstance(command, str)
-        _l.info(f"+++ {cwd_str}$ {command}")
+        _l.debug(f"+++ {cwd_str}$ {command}")
         subprocess.check_call(command, **kwargs)
     else:
         pretty_cmd = shlex.join(command)
-        _l.info(f"+++ {cwd_str}$ {pretty_cmd}")
+        _l.debug(f"+++ {cwd_str}$ {pretty_cmd}")
         subprocess.check_call(command, **kwargs)
 
 
@@ -43,11 +43,11 @@ def check_output(command, **kwargs):
 
     if kwargs.get("shell", False):
         pretty_cmd = " ".join(command)
-        _l.info(f"+++ {cwd_str}$ {pretty_cmd}")
+        _l.debug(f"+++ {cwd_str}$ {pretty_cmd}")
         return subprocess.check_output(pretty_cmd, **kwargs)
     else:
         pretty_cmd = shlex.join(command)
-        _l.info(f"+++ {cwd_str}$ {pretty_cmd}")
+        _l.debug(f"+++ {cwd_str}$ {pretty_cmd}")
         return subprocess.check_output(command, **kwargs)
 
 
@@ -64,14 +64,14 @@ def tee_output(
     cwd_str = str(cwd) if cwd is not None else ''
 
     if isinstance(command, str):
-        _l.info(f"+++ {cwd_str}$ {command}")
+        _l.debug(f"+++ {cwd_str}$ {command}")
     else:
         if shell:
             command = shlex.join(command)
-            _l.info(f"+++ {cwd_str}$ {command}")
+            _l.debug(f"+++ {cwd_str}$ {command}")
         else:
             pretty_cmd = shlex.join(command)
-            _l.info(f"+++ {cwd_str}$ {pretty_cmd}")
+            _l.debug(f"+++ {cwd_str}$ {pretty_cmd}")
 
     proc = subprocess.Popen(
         command, stdout=PIPE, stderr=PIPE, bufsize=0, text=False, shell=shell, env=env, cwd=cwd,
@@ -157,7 +157,7 @@ def hook_stdout(command, *, stdout_hook, **kwargs):
         pretty_cmd = " ".join(command)
     else:
         pretty_cmd = shlex.join(command)
-    _l.info("+++ %s$ %s", cwd_str, pretty_cmd)
+    _l.debug("+++ %s$ %s", cwd_str, pretty_cmd)
 
     assert isinstance(command, str) == kwargs.get("shell", False)
 
@@ -204,10 +204,10 @@ def run(
 
     if not shell:
         pretty_cmd = " ".join(command)
-        _l.info(f"+++ {cwd_str}$ {pretty_cmd}")
+        _l.debug(f"+++ {cwd_str}$ {pretty_cmd}")
     else:
         pretty_cmd = shlex.join(command)
-        _l.info(f"+++ {cwd_str}$ {pretty_cmd}")
+        _l.debug(f"+++ {cwd_str}$ {pretty_cmd}")
     return subprocess.run(
         command,
         stdout=stdout,
