@@ -53,6 +53,12 @@ def map_optional(x: Optional[T1], f: Callable[[T1], T2]) -> Optional[T2]:
     else:
         return f(x)
 
+def default_to(x: Optional[T], y: T) -> T:
+    if x is None:
+        return y
+    else:
+        return x
+
 def common_ancestors(lhs: PurePath, rhs: PurePath) -> Iterator[PurePath]:
     for l, r in zip(list(lhs.parents)[::-1], list(rhs.parents)[::-1]):
         if l == r:

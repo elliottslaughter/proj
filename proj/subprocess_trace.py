@@ -6,6 +6,7 @@ from subprocess import (
     CalledProcessError as CalledProcessError,
     PIPE,
     CompletedProcess as CompletedProcess,
+    TimeoutExpired as TimeoutExpired,
 )
 import sys
 import io
@@ -199,6 +200,7 @@ def run(
     env: Optional[Mapping[str, str]] = None,
     cwd: Optional[Path] = None,
     check: bool = False,
+    timeout: Optional[float] = None,
 ) -> CompletedProcess:
     cwd_str = str(cwd) if cwd is not None else ''
 
@@ -217,4 +219,5 @@ def run(
         env=env,
         cwd=cwd,
         check=check,
+        timeout=timeout,
     )

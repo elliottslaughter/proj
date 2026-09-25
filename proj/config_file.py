@@ -41,6 +41,7 @@ from .json import (
     require_bool,
     require_list_of,
     require_dict_of,
+    require_int,
 )
 from proj.strenum import StrEnum
 from .paths import (
@@ -109,6 +110,7 @@ class ProjectConfig:
     _cuda_launch_cmd: Optional[Tuple[str, ...]] = None
     _layout_ignore_paths: Optional[Tuple[Path, ...]] = None
     _build_tool: Optional[BuildTool] = None
+    _test_case_timeout_seconds: Optional[int] = None
 
     @property
     def repo(self) -> Repo:
@@ -401,6 +403,13 @@ class ProjectConfig:
             return self._test_header_path
 
     @property
+    def test_case_timeout_seconds(self) -> Optional[int]:
+        if self._test_case_timeout_seconds is None:
+            return 60 * 3
+        else:
+            return self._test_case_timeout_seconds
+
+    @property
     def cuda_launch_cmd(self) -> Tuple[str, ...]:
         if self._cuda_launch_cmd is None:
             return tuple()
@@ -535,6 +544,8 @@ def _load_targets(m: object) -> Mapping[str, Union[LibConfig, BinConfig]]:
     }
 
 
+def load_int(x: object) -> Optional[int]:
+    return map_optional(x, require_int)
 
 def load_build_tool(x: object) -> Optional[BuildTool]:
     return map_optional(map_optional(x, require_str), lambda s: BuildTool(s))
@@ -586,6 +597,7 @@ class ConfigKey(StrEnum):
     LAYOUT_IGNORE_PATHS = "layout_ignore_paths"
     DOXYGEN = "doxygen"
     BUILD_TOOL = "build_tool"
+    TEST_CASE_TIMEOUT_SECONDS = "test_case_timeout_seconds"
 
 def load_parsed_config(repo: Repo, raw: object) -> ProjectConfig:
     _l.debug("Loading parsed config: %s", raw)
@@ -621,6 +633,7 @@ def load_parsed_config(repo: Repo, raw: object) -> ProjectConfig:
         _cuda_launch_cmd=load_str_tuple(raw.get(ConfigKey.CUDA_LAUNCH_CMD)),
         _layout_ignore_paths=load_path_tuple(raw.get(ConfigKey.LAYOUT_IGNORE_PATHS)),
         _build_tool=load_build_tool(raw.get(ConfigKey.BUILD_TOOL)),
+        _test_case_timeout_seconds=load_int(raw.get(ConfigKey.TEST_CASE_TIMEOUT_SECONDS)),
     )
 
 

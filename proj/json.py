@@ -45,6 +45,11 @@ def require_bool(x: object) -> bool:
     return x
 
 
+def require_int(x: object) -> int:
+    assert isinstance(x, int)
+    return x
+
+
 def require_path(x: object) -> Path:
     s = require_str(x)
     return Path(s)

@@ -399,7 +399,7 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
         jobs=jobs,
     )
 
-    if len(test_results.failed) > 0:
+    if len(test_results.failed) > 0 or len(test_results.timed_out) > 0:
         fail_without_error()
 
     if config.doxygen_enabled:

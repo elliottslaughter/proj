@@ -79,7 +79,9 @@ from .testing import (
     run_test_case,
     resolve_test_case_target_using_build,
     report_test_failure,
+    report_test_timeout,
     report_test_success,
+    TestCaseTerminationType,
 )
 from .checks import (
     Check,
@@ -651,18 +653,27 @@ def main_test(args: MainTestArgs) -> int:
         )
         num_passed = len(test_statistics.passed)
         num_failed = len(test_statistics.failed)
+        num_timed_out = len(test_statistics.timed_out)
+        num_total = num_passed + num_failed + num_timed_out
         print(
-            f"Test results: {num_passed} passed / {num_failed} failed / {num_passed + num_failed} total"
+            f"Test results: {num_passed} passed / {num_failed} failed / {num_timed_out} timed out / {num_total} total"
         )
-        if num_failed > 0:
-            fail_with_error(
-                "\n".join(
-                    [
-                        "The following tests failed:",
-                        *["- " + tc.full_name for tc in test_statistics.failed],
-                    ]
-                )
-            )
+        if (num_failed + num_timed_out) > 0:
+            lines = []
+
+            if num_failed > 0:
+                lines += [
+                    "The following tests failed:",
+                    *["- " + tc.full_name for tc in test_statistics.failed],
+                ]
+
+            if num_timed_out > 0:
+                lines += [
+                    "The following tests timed out:",
+                    *["- " + tc.full_name for tc in test_statistics.timed_out],
+                ]
+
+            fail_with_error("\n".join(lines))
 
     else:
         assert len(get_test_suites(requested_test_targets_to_run)) == 0
@@ -697,12 +708,17 @@ def main_test(args: MainTestArgs) -> int:
                 debug=args.debug,
             )
             _l.debug("Test case %s returned result %s", only_to_run, test_case_result)
-            if not test_case_result.did_pass:
+            if test_case_result.termination == TestCaseTerminationType.SUCCESS:
+                report_test_success(only_to_run, test_case_result)
+            elif test_case_result.termination == TestCaseTerminationType.TIMEOUT:
+                report_test_timeout(only_to_run, test_case_result)
+                _l.debug("Test case %s timed out. Returning...", only_to_run)
+                return STATUS_ERR
+            else:
+                assert test_case_result.termination == TestCaseTerminationType.FAILURE
                 report_test_failure(only_to_run, test_case_result)
                 _l.debug("Test case %s failed. Returning...", only_to_run)
                 return STATUS_ERR
-            else:
-                report_test_success(only_to_run, test_case_result)
 
     if args.coverage:
         _l.debug("Generating requested coverage data...")
