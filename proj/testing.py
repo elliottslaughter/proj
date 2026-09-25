@@ -380,6 +380,27 @@ def run_test_suites(
     passed = []
     failed = []
 
+    def log_outstanding_testcases(elide_at: int = 3) -> None:
+        not_completed = [
+            tc for tc in test_cases if tc not in passed and tc not in failed
+        ]
+
+        message_lines = [
+            f'Waiting on {len(not_completed)} testcases:',
+            *[
+                '- ' + repr(tc)
+                for tc in not_completed[:elide_at]
+            ],
+        ]
+        if len(not_completed) > elide_at:
+            not_shown = len(not_completed) - elide_at
+            message_lines.append(
+                f'and {not_shown} others'
+            )
+
+        message = '\n'.join(message_lines)
+        _l.info(message)
+
     manager = get_progress_manager()
     with manager.counter(total=len(test_cases), desc="Running tests") as pbar:
         with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as executor:
@@ -390,9 +411,15 @@ def run_test_suites(
                 ): test_case
                 for test_case in test_cases
             }
+            log_outstanding_testcases()
 
             for future in concurrent.futures.as_completed(future_to_test_case):
                 test_case = future_to_test_case[future]
+                _l.debug(
+                    'Test case %s finished running.',
+                    test_case,
+                )
+
                 try:
                     test_case_result = future.result()
                 except Exception:
@@ -438,6 +465,7 @@ def run_test_suites(
                             failed.append(test_case)
 
                             report_test_failure(test_case, test_case_result)
+                log_outstanding_testcases()
 
     return TestStatistics(
         passed=tuple(passed),
