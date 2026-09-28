@@ -180,7 +180,7 @@ def run_invalid_test_names_check(
     config: ProjectConfig,
     verbosity: int,
     build_dir: Path,
-    jobs: int,
+    num_jobs: int,
 ) -> None:
     repo_file_tree = load_filesystem_for_repo(config.repo)
 
@@ -189,7 +189,7 @@ def run_invalid_test_names_check(
         repo_path_tree=repo_file_tree,
         config=config,
         targets=set(t.build_target for t in config.all_test_targets),
-        jobs=jobs,
+        jobs=num_jobs,
         verbosity=verbosity,
         build_dir=build_dir,
         redirect_build_stdout_to_stderr=False,
@@ -215,7 +215,7 @@ def run_duplicate_test_names_check(
     config: ProjectConfig,
     verbosity: int,
     build_dir: Path,
-    jobs: int,
+    num_jobs: int,
 ) -> None:
     repo_file_tree = load_filesystem_for_repo(config.repo)
 
@@ -224,7 +224,7 @@ def run_duplicate_test_names_check(
         repo_path_tree=repo_file_tree,
         config=config,
         targets=set(t.build_target for t in config.all_test_targets),
-        jobs=jobs,
+        jobs=num_jobs,
         verbosity=verbosity,
         build_dir=build_dir,
         redirect_build_stdout_to_stderr=False,
@@ -279,7 +279,7 @@ def run_formatter_check(
         fail_with_error("Formatter check failed. You should probably run 'proj format'")
 
 
-def run_check(config: ProjectConfig, check: Check, verbosity: int, jobs: int) -> None:
+def run_check(config: ProjectConfig, check: Check, verbosity: int, num_jobs: int) -> None:
     repo_file_tree = load_filesystem_for_repo(config.repo)
 
     if check == Check.FORMAT:
@@ -287,9 +287,9 @@ def run_check(config: ProjectConfig, check: Check, verbosity: int, jobs: int) ->
     elif check == Check.LAYOUT:
         run_layout_check(repo_file_tree, config)
     elif check == Check.CPU_CI:
-        run_cpu_ci(config, repo_file_tree, verbosity=verbosity, jobs=jobs)
+        run_cpu_ci(config, repo_file_tree, verbosity=verbosity, num_jobs=num_jobs)
     elif check == Check.GPU_CI:
-        run_gpu_ci(config, verbosity=verbosity, jobs=jobs)
+        run_gpu_ci(config, verbosity=verbosity, num_jobs=num_jobs)
     elif check == Check.IFNDEF:
         run_ifndef_check(
             repo_file_tree,
@@ -308,20 +308,20 @@ def run_check(config: ProjectConfig, check: Check, verbosity: int, jobs: int) ->
             config,
             verbosity=verbosity,
             build_dir=config.debug_build_dir,
-            jobs=jobs,
+            num_jobs=num_jobs,
         )
     elif check == Check.INVALID_TEST_CASE_NAMES:
         run_invalid_test_names_check(
             config,
             verbosity=verbosity,
             build_dir=config.debug_build_dir,
-            jobs=jobs,
+            num_jobs=num_jobs,
         )
     else:
         raise ValueError(f'Invalid check: {check!r}')
 
 
-def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int, jobs: int) -> None:
+def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int, num_jobs: int) -> None:
     run_dtgen(
         repo=config.repo,
         repo_file_tree=repo_file_tree,
@@ -336,14 +336,14 @@ def run_build_check(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMt
         repo_path_tree=repo_file_tree,
         config=config,
         targets=config.all_build_targets,
-        jobs=jobs,
+        jobs=num_jobs,
         verbosity=verbosity,
         build_dir=config.debug_build_dir,
         redirect_build_stdout_to_stderr=False,
     )
 
 
-def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int, jobs: int) -> None:
+def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, verbosity: int, num_jobs: int) -> None:
 
     _l.info("Running repository layout check...")
     run_layout_check(repo_file_tree, config)
@@ -369,7 +369,7 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
         repo_path_tree=repo_file_tree,
         config=config,
         targets=cpu_build_targets,
-        jobs=jobs,
+        jobs=num_jobs,
         verbosity=verbosity,
         build_dir=config.coverage_build_dir,
         redirect_build_stdout_to_stderr=False,
@@ -380,7 +380,7 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
         config=config,
         verbosity=verbosity,
         build_dir=config.coverage_build_dir,
-        jobs=jobs,
+        num_jobs=num_jobs,
     )
 
     _l.info("Checking for duplicate tests in %s...", config.all_test_targets)
@@ -388,7 +388,7 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
         config=config,
         verbosity=verbosity,
         build_dir=config.coverage_build_dir,
-        jobs=jobs,
+        num_jobs=num_jobs,
     )
 
     _l.info("Running tests %s", config.all_cpu_test_targets)
@@ -396,7 +396,7 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
         config=config,
         test_suites=list(sorted(config.all_cpu_test_targets)),
         build_dir=config.coverage_build_dir,
-        jobs=jobs,
+        num_jobs=num_jobs,
     )
 
     if len(test_results.failed) > 0 or len(test_results.timed_out) > 0:
@@ -408,7 +408,7 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
 
 
 
-def run_gpu_ci(config: ProjectConfig, verbosity: int, jobs: int) -> None:
+def run_gpu_ci(config: ProjectConfig, verbosity: int, num_jobs: int) -> None:
     repo_file_tree = load_filesystem_for_repo(config.repo)
 
     _l.info("Running dtgen")
@@ -429,7 +429,7 @@ def run_gpu_ci(config: ProjectConfig, verbosity: int, jobs: int) -> None:
         repo_path_tree=repo_file_tree,
         config=config,
         targets=cuda_build_targets,
-        jobs=jobs,
+        jobs=num_jobs,
         verbosity=verbosity,
         build_dir=config.debug_build_dir,
         redirect_build_stdout_to_stderr=False,
@@ -441,7 +441,7 @@ def run_gpu_ci(config: ProjectConfig, verbosity: int, jobs: int) -> None:
         config=config,
         test_suites=test_suites,
         build_dir=config.debug_build_dir,
-        jobs=jobs,
+        num_jobs=num_jobs,
     )
 
     if len(test_results.failed) > 0:

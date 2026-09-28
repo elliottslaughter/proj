@@ -220,7 +220,8 @@ def _find_occurrences_of_include(repo_file_tree: FileTree, include: IncludeSpec,
                 RoleInGroup.PUBLIC_HEADER,
                 RoleInGroup.SOURCE,
                 RoleInGroup.TEST,
-                RoleInGroup.BENCHMARK,
+                RoleInGroup.BENCHMARK_SOURCE,
+                RoleInGroup.BENCHMARK_HEADER,
             ]:
                 if include in find_include_specs_in_cpp_file_contents(
                     repo_file_tree.get_file_contents(path),

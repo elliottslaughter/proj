@@ -26,7 +26,6 @@
       packages = rec {
         proj = pkgs.python3Packages.callPackage ./pkgs/proj {
           inherit pytest-skip-slow;
-          inherit bencher-cli;
           inherit ff-clang-format;
           inherit rapidcheckFull;
           inherit doctest;
@@ -36,7 +35,6 @@
           # see https://discourse.nixos.org/t/which-perf-package/22399
           perf = pkgs.linuxPackages_latest.perf;
         };
-        bencher-cli = pkgs.callPackage ./pkgs/bencher.nix { };
         ff-clang-format = pkgs.callPackage ./pkgs/ff-clang-format.nix { };
         doctest = pkgs.callPackage ./pkgs/doctest { };
         pytest-skip-slow = pkgs.python3Packages.callPackage ./pkgs/pytest-skip-slow.nix { };
@@ -80,7 +78,6 @@
               nlohmann_json
               fmt
               cmake
-              gbenchmark
               lcov
               gdb
               doxygen

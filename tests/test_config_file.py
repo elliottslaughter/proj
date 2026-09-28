@@ -4,6 +4,10 @@ from proj.config_file import (
     ConfigKey,
     ProjectConfig,
 )
+from proj.targets import (
+    BenchmarkCaseTarget,
+    BenchmarkSuiteTarget,
+)
 from proj.utils import (
     with_suffix_appended,
     with_suffixes,
@@ -36,6 +40,24 @@ def get_example_config() -> Dict[str, Any]:
             '/example/ignore/me.h',
             '/example/ignore_us/',
         ],
+        ConfigKey.BENCHMARKS: {
+            'a': [
+                {
+                    'name': 'hello',
+                    'budget': 50,
+                },
+            ],
+            'b': [
+                {
+                    'name': 'bye',
+                    'budget': 25,
+                },
+                {
+                    'name': 'goodbye',
+                    'budget': 30,
+                },
+            ],
+        },
     }
 
 REPO = Repo(PurePath('/config/root'))
@@ -60,6 +82,11 @@ LOADED_CONFIG = ProjectConfig(
         Path('/example/ignore/me.h'),
         Path('/example/ignore_us/'),
     ),
+    _benchmark_instruction_budgets={
+        BenchmarkCaseTarget(BenchmarkSuiteTarget('a'), 'hello'): 50,
+        BenchmarkCaseTarget(BenchmarkSuiteTarget('b'), 'bye'): 25,
+        BenchmarkCaseTarget(BenchmarkSuiteTarget('b'), 'goodbye'): 30,
+    },
 )
 
 def test_load_parsed_config_loads_complete_value() -> None:

@@ -9,7 +9,6 @@
 , valgrind
 , kcachegrind
 , ff-clang-format
-, bencher-cli
 , hotspot
 , perf
 , ccache
@@ -40,7 +39,6 @@ let
     valgrind
     kcachegrind
     ff-clang-format
-    bencher-cli
     hotspot
     perf
     ccache

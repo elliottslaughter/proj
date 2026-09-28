@@ -32,14 +32,15 @@ def test_scan_component_for_files() -> None:
     header = 'include/example/example_struct.h'
     src_f = 'src/example/example_struct.cc'
     test_src = 'test/src/example/example_struct.cc'
-    benchmark_src = 'benchmark/src/example/example_struct.cc'
+    benchmark_src = 'benchmark/src/benchmark/example/example_struct.cc'
+    benchmark_hdr = 'benchmark/include/benchmark/example/example_struct.h'
 
     extension_config = ExtensionConfig(
         '.h', '.cc',
     )
 
     component_path_tree = EmulatedPathTree.from_map({
-        PurePath(p): PathType.FILE 
+        PurePath(p): PathType.FILE
         for p in [
             'CMakeLists.txt',
             'include/example/example_variant.dtg.toml',
@@ -48,6 +49,7 @@ def test_scan_component_for_files() -> None:
             src_f,
             test_src,
             benchmark_src,
+            benchmark_hdr,
             'src/bad.cc'
         ]
     })
@@ -62,7 +64,8 @@ def test_scan_component_for_files() -> None:
         group.public_header,
         group.source,
         group.test,
-        group.benchmark,
+        group.benchmark_source,
+        group.benchmark_header,
         FileGroup(PurePath('example_variant'), component).dtgen_toml,
         UnrecognizedFile(ComponentRelPath(PurePath('src/bad.cc'), component))
     }
@@ -82,7 +85,8 @@ def test_scan_repo_for_components() -> None:
             'lib/example/include/example/example_struct.dtg.toml',
             'lib/example/src/example/example_struct.cc',
             'lib/example/test/src/example/example_struct.cc',
-            'lib/example/benchmark/src/example/example_struct.cc',
+            'lib/example/benchmark/include/benchmark/example/example_struct.h',
+            'lib/example/benchmark/src/benchmark/example/example_struct.cc',
             'lib/example/src/bad.cc',
         ]
     })
@@ -95,11 +99,12 @@ def test_scan_repo_for_components() -> None:
             'include/example/example_struct.dtg.toml',
             'src/example/example_struct.cc',
             'test/src/example/example_struct.cc',
-            'benchmark/src/example/example_struct.cc',
+            'benchmark/include/benchmark/example/example_struct.h',
+            'benchmark/src/benchmark/example/example_struct.cc',
             'src/bad.cc',
         ]
     })
-    
+
     result = {
         k: v for k, v in scan_repo_for_components(repo_path_tree, extension_config)
     }
@@ -118,7 +123,8 @@ def test_detect_incomplete_groups_detects_missing_header() -> None:
             RoleInGroup.SOURCE,
             RoleInGroup.DTGEN_TOML,
             RoleInGroup.TEST,
-            RoleInGroup.BENCHMARK,
+            RoleInGroup.BENCHMARK_SOURCE,
+            RoleInGroup.BENCHMARK_HEADER,
         ]
 
     input = {
@@ -129,7 +135,7 @@ def test_detect_incomplete_groups_detects_missing_header() -> None:
 
     correct = {
         IncompleteGroup(
-            file_group, 
+            file_group,
             present=frozenset(present),
             missing=frozenset([RoleInGroup.PUBLIC_HEADER]),
         ),
@@ -158,10 +164,10 @@ def test_detect_missing_roles() -> None:
         RoleInGroup.SOURCE,
         RoleInGroup.DTGEN_TOML,
         RoleInGroup.TEST,
-        RoleInGroup.BENCHMARK,
+        RoleInGroup.BENCHMARK_SOURCE,
     })
 
-    correct = {RoleInGroup.PUBLIC_HEADER}
+    correct = {RoleInGroup.PUBLIC_HEADER, RoleInGroup.BENCHMARK_HEADER}
 
     assert correct == result
 
@@ -171,14 +177,14 @@ def test_run_layout_check() -> None:
     struct_toml = 'lib/example/include/example/example_struct.dtg.toml'
     src_f = 'lib/example/src/example/example_struct.cc'
     test_src = 'lib/example/test/src/example/example_struct.cc'
-    benchmark_src = 'lib/example/benchmark/src/example/example_struct.cc'
+    benchmark_src = 'lib/example/benchmark/src/benchmark/example/example_struct.cc'
 
     extension_config = ExtensionConfig(
         '.h', '.cc',
     )
 
     component_path_tree = EmulatedPathTree.from_map({
-        PurePath(p): PathType.FILE 
+        PurePath(p): PathType.FILE
         for p in [
             'lib/example/CMakeLists.txt',
             'lib/example/include/example/example_variant.dtg.toml',
@@ -201,14 +207,14 @@ def test_run_layout_check() -> None:
 
     correct = {
         IncompleteGroup(
-            group, 
+            group,
             present=frozenset({
-                RoleInGroup.DTGEN_TOML, 
-                RoleInGroup.SOURCE, 
-                RoleInGroup.TEST, 
-                RoleInGroup.BENCHMARK,
+                RoleInGroup.DTGEN_TOML,
+                RoleInGroup.SOURCE,
+                RoleInGroup.TEST,
+                RoleInGroup.BENCHMARK_SOURCE,
             }),
-            missing=frozenset({RoleInGroup.PUBLIC_HEADER}),
+            missing=frozenset({RoleInGroup.PUBLIC_HEADER, RoleInGroup.BENCHMARK_HEADER}),
         ),
         UnrecognizedFile(ComponentRelPath(PurePath('src/bad.cc'), component))
     }

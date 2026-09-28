@@ -32,8 +32,10 @@ def get_component_rel_path(file: File, extension_config: ExtensionConfig) -> Com
         rel = PurePath('src') / component_name / group_dir / (group_name + source_extension)
     elif file.role == RoleInGroup.TEST:
         rel = PurePath('test/src') / component_name / group_dir / (group_name + source_extension)
-    elif file.role == RoleInGroup.BENCHMARK:
-        rel = PurePath('benchmark/src') / component_name / group_dir / (group_name + source_extension)
+    elif file.role == RoleInGroup.BENCHMARK_HEADER:
+        rel = PurePath('benchmark/include/benchmark') / component_name / group_dir / (group_name + header_extension)
+    elif file.role == RoleInGroup.BENCHMARK_SOURCE:
+        rel = PurePath('benchmark/src/benchmark') / component_name / group_dir / (group_name + source_extension)
     elif file.role == RoleInGroup.DTGEN_TOML:
         rel = PurePath('include') / component_name / group_dir / (group_name + '.dtg.toml')
     elif file.role == RoleInGroup.GENERATED_HEADER:

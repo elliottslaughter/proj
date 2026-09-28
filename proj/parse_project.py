@@ -87,7 +87,8 @@ def parse_file_path(
     public_include_dir = PurePath('include') / component.name
     src_dir = PurePath('src') / component.name
     test_dir = PurePath('test/src') / component.name
-    benchmark_dir = PurePath('benchmark/src') / component.name
+    benchmark_include_dir = PurePath('benchmark/include/benchmark') / component.name
+    benchmark_src_dir = PurePath('benchmark/src/benchmark') / component.name
 
     file_type: RoleInGroup
     group: FileGroup
@@ -136,12 +137,18 @@ def parse_file_path(
             component,
         )
         file_type=RoleInGroup.TEST
-    elif is_relative_to(p, benchmark_dir):
+    elif is_relative_to(p, benchmark_include_dir):
         group=FileGroup(
-            p.parent.relative_to(benchmark_dir) / p.stem,
+            p.parent.relative_to(benchmark_include_dir) / p.stem,
             component,
         )
-        file_type=RoleInGroup.BENCHMARK
+        file_type=RoleInGroup.BENCHMARK_HEADER
+    elif is_relative_to(p, benchmark_src_dir):
+        group=FileGroup(
+            p.parent.relative_to(benchmark_src_dir) / p.stem,
+            component,
+        )
+        file_type=RoleInGroup.BENCHMARK_SOURCE
     else:
         return None
 

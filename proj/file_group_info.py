@@ -26,6 +26,7 @@ class FileGroupInfo:
     generated_source: PurePath
     source: PurePath
     test_source: PurePath
+    benchmark_header: PurePath
     benchmark_source: PurePath
     toml_path: PurePath
     ifndef: str
@@ -39,6 +40,7 @@ class FileGroupInfo:
             "source": str(self.source),
             "generated_source": str(self.generated_source),
             "test_source": str(self.test_source),
+            "benchmark_header": str(self.benchmark_header),
             "benchmark_source": str(self.benchmark_source),
             "toml_path": str(self.toml_path),
             "ifndef": self.ifndef,
@@ -57,7 +59,8 @@ def get_file_group_info(
         generated_source=get_repo_rel_path(file_group.generated_source, extension_config).path,
         source=get_repo_rel_path(file_group.source, extension_config).path,
         test_source=get_repo_rel_path(file_group.test, extension_config).path,
-        benchmark_source=get_repo_rel_path(file_group.benchmark, extension_config).path,
+        benchmark_header=get_repo_rel_path(file_group.benchmark_header, extension_config).path,
+        benchmark_source=get_repo_rel_path(file_group.benchmark_source, extension_config).path,
         toml_path=get_repo_rel_path(file_group.dtgen_toml, extension_config).path,
         ifndef=get_correct_ifndef_for_path(ifndef_base, get_repo_rel_path(file_group.public_header, extension_config)),
         generated_include=get_generated_include_path(file_group, extension_config.header_extension),

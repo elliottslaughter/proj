@@ -57,6 +57,9 @@ def require_path(x: object) -> Path:
 
 T = TypeVar("T")
 
+def require_not_none(x: Optional[T]) -> T:
+    assert x is not None
+    return x
 
 def require_list_of(x: object, check_element: Callable[[object], T]) -> Tuple[T, ...]:
     assert isinstance(x, list)

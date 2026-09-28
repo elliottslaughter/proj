@@ -176,7 +176,6 @@ def parse_generic_run_target(
     s: str,
 ) -> Union[
     "GenericBinTarget",
-    "BenchmarkSuiteTarget",
     "BenchmarkCaseTarget",
     "GenericTestSuiteTarget",
     "GenericTestCaseTarget",
@@ -184,8 +183,6 @@ def parse_generic_run_target(
     pieces = s.split(":")
     if len(pieces) == 1:
         return GenericBinTarget(pieces[0])
-    elif len(pieces) == 2 and is_nonempty_prefix_of(pieces[1], "benchmarks"):
-        return LibTarget(pieces[0]).benchmark_target
     elif len(pieces) == 3 and is_nonempty_prefix_of(pieces[1], "benchmarks"):
         return LibTarget(pieces[0]).benchmark_target.get_benchmark_case(pieces[2])
     elif len(pieces) == 2 and is_nonempty_prefix_of(pieces[1], "tests"):
@@ -602,7 +599,7 @@ class BenchmarkSuiteTarget:
                 / self.lib_name
                 / "benchmark"
                 / self.benchmark_binary_name,
-                args=tuple(),
+                args=tuple(['--list']),
             ),
         )
 
@@ -628,7 +625,7 @@ class BenchmarkCaseTarget:
         return CpuRunTarget(
             dataclasses.replace(
                 generic_run_target,
-                args=tuple([f"--benchmark_filter=^{re.escape(self.case_name)}$"]),
+                args=tuple(["--benchmark", self.case_name]),
             ),
         )
 

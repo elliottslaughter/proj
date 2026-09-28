@@ -8,7 +8,6 @@ set(
 )
 
 include(doctestlib) # named doctestlib to avoid a name collision with doctest.cmake in rapidcheck
-include(gbenchmark)
 find_package(rapidcheck REQUIRED)
 # include(rapidcheck)
 include(fmt)

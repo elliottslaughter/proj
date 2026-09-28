@@ -370,7 +370,7 @@ def test_run_test_case() -> None:
 @pytest.mark.slow
 def test_run_benchmark_suite() -> None:
     with cmade_project_instance() as d:
-        check_cmd_succeeds(d, [
+        check_cmd_fails(d, [
             'run',
             '-j1',
             'lib1:benchmarks',
@@ -383,7 +383,7 @@ def test_run_benchmark_case() -> None:
         check_cmd_succeeds(d, [
             'run',
             '-j1',
-            'lib1:benchmarks:example_benchmark/75/16'
+            'lib1:benchmarks:example_benchmark'
         ])
 
 @pytest.mark.e2e
@@ -395,6 +395,13 @@ def test_benchmark_suite() -> None:
             '-j1',
             'lib1',
         ])
+        check_cmd_fails(d, [
+            'benchmark',
+            '-j1',
+            'lib1',
+        ], env={
+            'PROJ_TESTS_FAIL_LIB1_BENCHMARK_BUDGET': 'y',
+        })
 
 @pytest.mark.e2e
 @pytest.mark.slow
@@ -403,8 +410,15 @@ def test_benchmark_case() -> None:
         check_cmd_succeeds(d, [
             'benchmark',
             '-j1',
-            'lib1:example_benchmark/75/16',
+            'lib1:example_benchmark',
         ])
+        check_cmd_fails(d, [
+            'benchmark',
+            '-j1',
+            'lib1:example_benchmark',
+        ], env={
+            'PROJ_TESTS_FAIL_LIB1_BENCHMARK_BUDGET': 'y',
+        })
 
 @pytest.mark.e2e
 @pytest.mark.slow
@@ -434,13 +448,11 @@ def test_profile_test_case_callgrind() -> None:
 @pytest.mark.slow
 def test_profile_benchmark_suite_callgrind() -> None:
     with cmade_project_instance() as d:
-        result = require_successful(run(d, [
+        check_cmd_fails(d, [
             'profile',
             '-j1',
             'lib1:benchmarks'
-        ]))
-
-        assert Path(result.stdout.splitlines()[-1]).is_file()
+        ])
 
 @pytest.mark.e2e
 @pytest.mark.slow
@@ -449,10 +461,9 @@ def test_profile_benchmark_case_callgrind() -> None:
         result = require_successful(run(d, [
             'profile',
             '-j1',
-            'lib1:benchmarks:example_benchmark/75/32'
+            'lib1:benchmarks:example_benchmark'
         ]))
 
-        assert 'example_benchmark/25/16' not in result.stdout
         assert Path(result.stdout.splitlines()[-1]).is_file()
 
 @pytest.mark.e2e
@@ -492,14 +503,13 @@ def test_profile_test_case_perf() -> None:
 @pytest.mark.xdist_group(name="perf")
 def test_profile_benchmark_suite_perf() -> None:
     with cmade_project_instance() as d:
-        result = require_successful(run(d, [
+        check_cmd_fails(d, [
             'profile',
             '-j1',
             '--tool',
             'perf',
             'lib1:benchmarks'
-        ]))
-        assert Path(result.stdout.splitlines()[-1]).is_file()
+        ])
 
 @pytest.mark.e2e
 @pytest.mark.slow
@@ -512,7 +522,7 @@ def test_profile_benchmark_case_perf() -> None:
             '-j1',
             '--tool',
             'perf',
-            'lib1:benchmarks:example_benchmark/75/32'
+            'lib1:benchmarks:example_benchmark'
         ]))
         assert Path(result.stdout.splitlines()[-1]).is_file()
 
@@ -546,7 +556,7 @@ def test_profile_test_case_perf_dry_run() -> None:
 @pytest.mark.slow
 def test_profile_benchmark_suite_perf_dry_run() -> None:
     with cmade_project_instance() as d:
-        check_cmd_succeeds(d, [
+        check_cmd_fails(d, [
             'profile',
             '-j1',
             '--tool',
@@ -565,7 +575,7 @@ def test_profile_benchmark_case_perf_dry_run() -> None:
             '--tool',
             'perf',
             '--dry-run',
-            'lib1:benchmarks:example_benchmark/75/32'
+            'lib1:benchmarks:example_benchmark'
         ])
 
 @pytest.mark.e2e
@@ -694,7 +704,8 @@ LIB1_QUERY_JSON_OUTPUT = {
     'source': 'lib/lib1/src/lib1/lib1.cc',
     'generated_source': 'lib/lib1/src/lib1/lib1.dtg.cc',
     'test_source': 'lib/lib1/test/src/lib1/lib1.cc',
-    'benchmark_source': 'lib/lib1/benchmark/src/lib1/lib1.cc',
+    'benchmark_header': 'lib/lib1/benchmark/include/benchmark/lib1/lib1.h',
+    'benchmark_source': 'lib/lib1/benchmark/src/benchmark/lib1/lib1.cc',
     'toml_path': 'lib/lib1/include/lib1/lib1.dtg.toml',
     'ifndef': '_TEST_PROJECT_1_LIB_LIB1_INCLUDE_LIB1_LIB1_H',
     'generated_include': 'lib1/lib1.dtg.h',
@@ -755,7 +766,8 @@ LIB1_TOML_QUERY_JSON_OUTPUT = {
     'source': 'lib/lib1/src/lib1/example_struct.cc',
     'generated_source': 'lib/lib1/src/lib1/example_struct.dtg.cc',
     'test_source': 'lib/lib1/test/src/lib1/example_struct.cc',
-    'benchmark_source': 'lib/lib1/benchmark/src/lib1/example_struct.cc',
+    'benchmark_header': 'lib/lib1/benchmark/include/benchmark/lib1/example_struct.h',
+    'benchmark_source': 'lib/lib1/benchmark/src/benchmark/lib1/example_struct.cc',
     'toml_path': 'lib/lib1/include/lib1/example_struct.dtg.toml',
     'ifndef': '_TEST_PROJECT_1_LIB_LIB1_INCLUDE_LIB1_EXAMPLE_STRUCT_H',
     'generated_include': 'lib1/example_struct.dtg.h',
@@ -830,7 +842,8 @@ def test_query_path_for_test_toml_variant() -> None:
             'source': 'lib/lib1/src/lib1/example_variant.cc',
             'generated_source': 'lib/lib1/src/lib1/example_variant.dtg.cc',
             'test_source': 'lib/lib1/test/src/lib1/example_variant.cc',
-            'benchmark_source': 'lib/lib1/benchmark/src/lib1/example_variant.cc',
+            'benchmark_header': 'lib/lib1/benchmark/include/benchmark/lib1/example_variant.h',
+            'benchmark_source': 'lib/lib1/benchmark/src/benchmark/lib1/example_variant.cc',
             'toml_path': 'lib/lib1/include/lib1/example_variant.dtg.toml',
             'ifndef': '_TEST_PROJECT_1_LIB_LIB1_INCLUDE_LIB1_EXAMPLE_VARIANT_H',
             'generated_include': 'lib1/example_variant.dtg.h',
@@ -855,7 +868,8 @@ def test_query_path_for_test_toml_enum() -> None:
             'source': 'lib/lib1/src/lib1/example_enum.cc',
             'generated_source': 'lib/lib1/src/lib1/example_enum.dtg.cc',
             'test_source': 'lib/lib1/test/src/lib1/example_enum.cc',
-            'benchmark_source': 'lib/lib1/benchmark/src/lib1/example_enum.cc',
+            'benchmark_header': 'lib/lib1/benchmark/include/benchmark/lib1/example_enum.h',
+            'benchmark_source': 'lib/lib1/benchmark/src/benchmark/lib1/example_enum.cc',
             'toml_path': 'lib/lib1/include/lib1/example_enum.dtg.toml',
             'ifndef': '_TEST_PROJECT_1_LIB_LIB1_INCLUDE_LIB1_EXAMPLE_ENUM_H',
             'generated_include': 'lib1/example_enum.dtg.h',

@@ -36,17 +36,16 @@ import itertools
 from dataclasses import (
     dataclass,
 )
-from .progressbar import (
-    get_progress_manager,
-)
 from .terminal_colors import (
     TermColor,
 )
-import concurrent.futures
 from .failure import fail_with_error
-from enum import (
-    Enum,
-    auto,
+from .executor import (
+    execute_tasks,
+    Task,
+    TerminationType,
+    execute_task,
+    TaskResult,
 )
 
 _l = logging.getLogger(__name__)
@@ -236,61 +235,16 @@ def parse_test_case_output(output: bytes) -> Optional[DoctestTestCaseExecutionSu
         succeeded=succeeded,
     )
 
-class TestCaseTerminationType(Enum):
-    SUCCESS = auto()
-    FAILURE = auto()
-    TIMEOUT = auto()
-
-@dataclass(frozen=True, eq=True)
-class TestCaseResult:
-    termination: TestCaseTerminationType
-    stderr: bytes
-    stdout: bytes
-
-@dataclass(frozen=True, eq=True)
-class RunTestCaseArgs:
-    cmd: List[str]
-    cwd: Path
-    env: Dict[str, str]
-    timeout_seconds: Optional[float]
-
-def build_test_case_args(
+def test_case_to_task(
     config: ProjectConfig,
     test_case: Union[CpuTestCaseTarget, CudaTestCaseTarget],
     build_dir: Path,
-) -> RunTestCaseArgs:
-    return RunTestCaseArgs(
+) -> Task:
+    return Task(
         cmd=list(config.cmd_for_run_target(test_case.run_target)),
         cwd=build_dir / test_case.run_target.executable_path.parent,
         env=dict(os.environ),
         timeout_seconds=config.test_case_timeout_seconds,
-    )
-
-def execute_test_case(args: RunTestCaseArgs) -> TestCaseResult:
-    try:
-        completed_process = subprocess.run(
-            command=args.cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=args.cwd,
-            env=args.env,
-            timeout=args.timeout_seconds,
-        )
-    except subprocess.TimeoutExpired as e:
-        return TestCaseResult(
-            termination=TestCaseTerminationType.TIMEOUT,
-            stderr=default_to(e.stderr, b''),
-            stdout=default_to(e.stdout, b''),
-        )
-
-    return TestCaseResult(
-        termination=(
-            TestCaseTerminationType.SUCCESS
-            if completed_process.returncode == 0
-            else TestCaseTerminationType.FAILURE
-        ),
-        stderr=completed_process.stderr,
-        stdout=completed_process.stdout,
     )
 
 def run_test_case(
@@ -298,7 +252,7 @@ def run_test_case(
     test_case: Union[CpuTestCaseTarget, CudaTestCaseTarget],
     build_dir: Path,
     debug: bool,
-) -> TestCaseResult:
+) -> TaskResult:
     cmd = config.cmd_for_run_target(test_case.run_target)
     cwd = build_dir / test_case.run_target.executable_path.parent
     env = os.environ
@@ -315,8 +269,8 @@ def run_test_case(
         )
         sys.exit(0)
     else:
-        return execute_test_case(
-            args=build_test_case_args(config, test_case, build_dir),
+        return execute_task(
+            test_case_to_task(config, test_case, build_dir),
         )
 
 @dataclass(frozen=True, eq=True)
@@ -328,9 +282,9 @@ class TestStatistics:
 
 def report_test_success(
     test_case: Union[CpuTestCaseTarget, CudaTestCaseTarget],
-    test_case_result: TestCaseResult,
+    test_case_result: TaskResult,
 ) -> None:
-    assert test_case_result.termination == TestCaseTerminationType.SUCCESS
+    assert test_case_result.termination == TerminationType.SUCCESS
     test_name_pretty = f"{test_case.test_suite.lib_name}:{test_case.test_case_name}"
     print("".join(
         [
@@ -342,9 +296,9 @@ def report_test_success(
 
 def report_test_timeout(
     test_case: Union[CpuTestCaseTarget, CudaTestCaseTarget],
-    test_case_result: TestCaseResult,
+    test_case_result: TaskResult,
 ) -> None:
-    assert test_case_result.termination == TestCaseTerminationType.TIMEOUT
+    assert test_case_result.termination == TerminationType.TIMEOUT
     test_name_pretty = f"{test_case.test_suite.lib_name}:{test_case.test_case_name}"
     print("".join(
         [
@@ -356,9 +310,9 @@ def report_test_timeout(
 
 def report_test_failure(
     test_case: Union[CpuTestCaseTarget, CudaTestCaseTarget],
-    test_case_result: TestCaseResult,
+    test_case_result: TaskResult,
 ) -> None:
-    assert test_case_result.termination == TestCaseTerminationType.FAILURE
+    assert test_case_result.termination == TerminationType.FAILURE
 
     test_name_pretty = f"{test_case.test_suite.lib_name}:{test_case.test_case_name}"
     header_line = "".join(
@@ -394,7 +348,7 @@ def run_test_suites(
         Union[MixedTestSuiteTarget, CpuTestSuiteTarget, CudaTestSuiteTarget]
     ],
     build_dir: Path,
-    jobs: int,
+    num_jobs: int,
 ) -> TestStatistics:
     _l.info("Running test suites %s", test_suites)
 
@@ -409,99 +363,60 @@ def run_test_suites(
     timed_out = []
     failed = []
 
-    def log_outstanding_testcases(elide_at: int = 3) -> None:
-        not_completed = [
-            tc for tc in test_cases if tc not in passed and tc not in failed and tc not in timed_out
-        ]
+    def _test_case_to_task(test_case: Union[CpuTestCaseTarget, CudaTestCaseTarget]) -> Task:
+        return test_case_to_task(config, test_case, build_dir)
 
-        message_lines = [
-            f'Waiting on {len(not_completed)} testcases:',
-            *[
-                '- ' + repr(tc)
-                for tc in not_completed[:elide_at]
-            ],
-        ]
-        if len(not_completed) > elide_at:
-            not_shown = len(not_completed) - elide_at
-            message_lines.append(
-                f'and {not_shown} others'
-            )
+    for test_case, test_case_result in execute_tasks(
+        'testcases',
+        _test_case_to_task,
+        test_cases,
+        num_jobs,
+    ):
+        if test_case_result.termination == TerminationType.TIMEOUT:
+            timed_out.append(test_case)
+            report_test_timeout(test_case, test_case_result)
+        else:
+            parsed_suffix = parse_test_case_output(test_case_result.stdout)
+            if parsed_suffix is None:
+                fail_with_error('\n'.join([
+                    f'Failed to parse doctest output of testcase {test_case}.',
+                    'stdout:',
+                    test_case_result.stdout.decode('utf8'),
+                    'stderr:',
+                    test_case_result.stderr.decode('utf8'),
+                ]))
+            assert parsed_suffix.succeeded == (test_case_result.termination == TerminationType.SUCCESS)
 
-        message = '\n'.join(message_lines)
-        _l.info(message)
-
-    manager = get_progress_manager()
-    with manager.counter(total=len(test_cases), desc="Running tests") as pbar:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as executor:
-            future_to_test_case = {
-                executor.submit(
-                    execute_test_case,
-                    build_test_case_args(config, test_case, build_dir),
-                ): test_case
-                for test_case in test_cases
-            }
-            log_outstanding_testcases()
-
-            for future in concurrent.futures.as_completed(future_to_test_case):
-                test_case = future_to_test_case[future]
-                _l.debug(
-                    'Test case %s finished running.',
-                    test_case,
-                )
-
-                try:
-                    test_case_result = future.result()
-                except Exception:
-                    _l.exception('Encountered an exception running a test case')
+            if test_case_result.termination == TerminationType.SUCCESS:
+                if parsed_suffix.test_cases_passed != 1:
+                    fail_with_error(
+                        f'Test case {test_case} had unexpected test_cases_passed count '
+                        f'in the doctest output: expected 1, but found {parsed_suffix.test_cases_passed}'
+                    )
+                elif parsed_suffix.test_cases_failed != 0:
+                    fail_with_error(
+                        f'Test case {test_case} had unexpected test_cases_failed count '
+                        f'in the doctest output: expected 0, but found {parsed_suffix.test_cases_failed}'
+                    )
                 else:
-                    pbar.update()
-                    if test_case_result.termination == TestCaseTerminationType.TIMEOUT:
-                        timed_out.append(test_case)
-                        report_test_timeout(test_case, test_case_result)
-                    else:
-                        parsed_suffix = parse_test_case_output(test_case_result.stdout)
-                        if parsed_suffix is None:
-                            fail_with_error('\n'.join([
-                                f'Failed to parse doctest output of testcase {test_case}.',
-                                'stdout:',
-                                test_case_result.stdout.decode('utf8'),
-                                'stderr:',
-                                test_case_result.stderr.decode('utf8'),
-                            ]))
-                        assert parsed_suffix.succeeded == (test_case_result.termination == TestCaseTerminationType.SUCCESS)
+                    passed.append(test_case)
+            else:
+                assert test_case_result.termination == TerminationType.FAILURE
 
-                        if test_case_result.termination == TestCaseTerminationType.SUCCESS:
-                            if parsed_suffix.test_cases_passed != 1:
-                                fail_with_error(
-                                    f'Test case {test_case} had unexpected test_cases_passed count '
-                                    f'in the doctest output: expected 1, but found {parsed_suffix.test_cases_passed}'
-                                )
-                            elif parsed_suffix.test_cases_failed != 0:
-                                fail_with_error(
-                                    f'Test case {test_case} had unexpected test_cases_failed count '
-                                    f'in the doctest output: expected 0, but found {parsed_suffix.test_cases_failed}'
-                                )
-                            else:
-                                passed.append(test_case)
-                        else:
-                            assert test_case_result.termination == TestCaseTerminationType.FAILURE
+                if parsed_suffix.test_cases_passed != 0:
+                    fail_with_error(
+                        f'Test case {test_case} had unexpected test_cases_passed count '
+                        f'in the doctest output: expected 0, but found {parsed_suffix.test_cases_passed}'
+                    )
+                elif parsed_suffix.test_cases_failed != 1:
+                    fail_with_error(
+                        f'Test case {test_case} had unexpected test_cases_failed count '
+                        f'in the doctest output: expected 1, but found {parsed_suffix.test_cases_failed}'
+                    )
+                else:
+                    failed.append(test_case)
 
-                            if parsed_suffix.test_cases_passed != 0:
-                                fail_with_error(
-                                    f'Test case {test_case} had unexpected test_cases_passed count '
-                                    f'in the doctest output: expected 0, but found {parsed_suffix.test_cases_passed}'
-                                )
-                            elif parsed_suffix.test_cases_failed != 1:
-                                fail_with_error(
-                                    f'Test case {test_case} had unexpected test_cases_failed count '
-                                    f'in the doctest output: expected 1, but found {parsed_suffix.test_cases_failed}'
-                                )
-                            else:
-                                failed.append(test_case)
-
-                                report_test_failure(test_case, test_case_result)
-
-                log_outstanding_testcases()
+                    report_test_failure(test_case, test_case_result)
 
     return TestStatistics(
         passed=tuple(passed),

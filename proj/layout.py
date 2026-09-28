@@ -76,6 +76,8 @@ def _scan_component_for_files(
             p.suffix in ['.dox'] or
             is_relative_to(p, PurePath('test/src/internal')) or
             is_relative_to(p, PurePath('benchmark/src/internal')) or
+            is_relative_to(p, PurePath('benchmark/include/internal')) or
+            p == PurePath('benchmark/src/main.cc') or
             (is_relative_to(p, PurePath('test/src')) and p.name == 'test_e2e.cc') or
             p in allowed_cmake_files
         ):
@@ -138,7 +140,8 @@ def detect_missing_roles(present: Collection[RoleInGroup]) -> Set[RoleInGroup]:
         RoleInGroup.PUBLIC_HEADER: {RoleInGroup.SOURCE},
         RoleInGroup.SOURCE: {RoleInGroup.PUBLIC_HEADER},
         RoleInGroup.TEST: {RoleInGroup.SOURCE, RoleInGroup.PUBLIC_HEADER},
-        RoleInGroup.BENCHMARK: {RoleInGroup.SOURCE, RoleInGroup.PUBLIC_HEADER},
+        RoleInGroup.BENCHMARK_HEADER: {RoleInGroup.SOURCE, RoleInGroup.PUBLIC_HEADER, RoleInGroup.BENCHMARK_SOURCE},
+        RoleInGroup.BENCHMARK_SOURCE: {RoleInGroup.SOURCE, RoleInGroup.PUBLIC_HEADER, RoleInGroup.BENCHMARK_HEADER},
     }
 
     necessary: Set[RoleInGroup] = set()

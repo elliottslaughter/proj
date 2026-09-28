@@ -45,8 +45,7 @@ from .build import (
 from .failure import fail_with_error
 from .benchmarks import (
     call_benchmarks,
-    upload_to_bencher,
-    pretty_print_benchmark,
+    pretty_name_for_benchmark_case,
 )
 from .cmake import (
     cmake_all,
@@ -81,7 +80,7 @@ from .testing import (
     report_test_failure,
     report_test_timeout,
     report_test_success,
-    TestCaseTerminationType,
+    TerminationType,
 )
 from .checks import (
     Check,
@@ -293,10 +292,7 @@ class MainBenchmarkArgs:
     jobs: int
     dtgen_skip: bool
     skip_gpu_benchmarks: bool
-    targets: Collection[Union[BenchmarkSuiteTarget, BenchmarkCaseTarget]]
-    upload: bool
-    browser: bool
-
+    targets: Sequence[Union[BenchmarkSuiteTarget, BenchmarkCaseTarget]]
 
 def main_benchmark(args: MainBenchmarkArgs) -> int:
     _l.debug("Running main_benchmark for args: %s", args)
@@ -305,11 +301,9 @@ def main_benchmark(args: MainBenchmarkArgs) -> int:
     repo = config.repo
     repo_file_tree = load_filesystem_for_repo(repo)
 
-    requested_benchmark_targets: List[Union[BenchmarkSuiteTarget, BenchmarkCaseTarget]]
-    if len(args.targets) == 0:
+    requested_benchmark_targets = args.targets
+    if len(requested_benchmark_targets) == 0:
         requested_benchmark_targets = list(config.default_benchmark_targets)
-    else:
-        requested_benchmark_targets = list(args.targets)
     _l.debug(
         "Determined requested benchmark targets to be: %s", requested_benchmark_targets
     )
@@ -353,12 +347,48 @@ def main_benchmark(args: MainBenchmarkArgs) -> int:
         redirect_build_stdout_to_stderr=True,
     )
 
-    benchmark_result = call_benchmarks(
-        requested_benchmark_targets, config.release_build_dir
+    summary = call_benchmarks(
+        config=config,
+        benchmarks=requested_benchmark_targets,
+        build_dir=config.release_build_dir,
+        num_jobs=args.jobs,
     )
-    pretty_print_benchmark(benchmark_result, f=sys.stdout)
-    if args.upload:
-        upload_to_bencher(config, benchmark_result, browser=args.browser)
+    num_passed = len(summary.passed)
+    num_failed = len(summary.failed)
+    num_timed_out = len(summary.timed_out)
+    num_errored = len(summary.errored)
+
+    print(''.join([
+        f"Benchmark results: ",
+        " / ".join([
+            f"{num_passed} passed",
+            f"{num_failed} failed",
+            f"{num_timed_out} timed out",
+            f"{num_errored} errored",
+        ])
+    ]))
+    if (num_failed + num_timed_out + num_errored) > 0:
+        lines = []
+
+        if num_failed > 0:
+            lines += [
+                "The following benchmarks failed:",
+                *["- " + pretty_name_for_benchmark_case(bm) for bm in summary.failed],
+            ]
+
+        if num_timed_out > 0:
+            lines += [
+                "The following benchmarks timed out:",
+                *["- " + pretty_name_for_benchmark_case(bm) for bm in summary.timed_out],
+            ]
+
+        if num_timed_out > 0:
+            lines += [
+                "The following benchmarks encountered an error:",
+                *["- " + pretty_name_for_benchmark_case(bm) for bm in summary.errored],
+            ]
+
+        fail_with_error("\n".join(lines))
 
     return 0
 
@@ -370,7 +400,6 @@ class MainRunArgs:
     jobs: int
     target: Union[
         GenericBinTarget,
-        BenchmarkSuiteTarget,
         BenchmarkCaseTarget,
         GenericTestSuiteTarget,
         GenericTestCaseTarget,
@@ -426,7 +455,6 @@ class MainProfileArgs:
     tool: ProfilingTool
     target: Union[
         GenericBinTarget,
-        BenchmarkSuiteTarget,
         BenchmarkCaseTarget,
         GenericTestSuiteTarget,
         GenericTestCaseTarget,
@@ -649,7 +677,7 @@ def main_test(args: MainTestArgs) -> int:
             config=config,
             test_suites=test_suites,
             build_dir=build_dir,
-            jobs=args.jobs,
+            num_jobs=args.jobs,
         )
         num_passed = len(test_statistics.passed)
         num_failed = len(test_statistics.failed)
@@ -708,14 +736,14 @@ def main_test(args: MainTestArgs) -> int:
                 debug=args.debug,
             )
             _l.debug("Test case %s returned result %s", only_to_run, test_case_result)
-            if test_case_result.termination == TestCaseTerminationType.SUCCESS:
+            if test_case_result.termination == TerminationType.SUCCESS:
                 report_test_success(only_to_run, test_case_result)
-            elif test_case_result.termination == TestCaseTerminationType.TIMEOUT:
+            elif test_case_result.termination == TerminationType.TIMEOUT:
                 report_test_timeout(only_to_run, test_case_result)
                 _l.debug("Test case %s timed out. Returning...", only_to_run)
                 return STATUS_ERR
             else:
-                assert test_case_result.termination == TestCaseTerminationType.FAILURE
+                assert test_case_result.termination == TerminationType.FAILURE
                 report_test_failure(only_to_run, test_case_result)
                 _l.debug("Test case %s failed. Returning...", only_to_run)
                 return STATUS_ERR
@@ -739,7 +767,7 @@ class MainCheckArgs:
 def main_check(args: MainCheckArgs) -> int:
     config = get_config(args.path)
 
-    run_check(config, args.check, verbosity=args.verbosity, jobs=args.jobs)
+    run_check(config, args.check, verbosity=args.verbosity, num_jobs=args.jobs)
 
     return STATUS_OK
 
@@ -1068,8 +1096,6 @@ def make_parser() -> argparse.ArgumentParser:
     )
     benchmark_p.add_argument("--dtgen-skip", action="store_true")
     benchmark_p.add_argument("--skip-gpu-benchmarks", action="store_true")
-    benchmark_p.add_argument("--upload", action="store_true")
-    benchmark_p.add_argument("--browser", action="store_true")
     benchmark_p.add_argument("targets", nargs="*", type=parse_generic_benchmark_target)
     add_verbosity_args(benchmark_p)
 
