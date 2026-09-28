@@ -31,6 +31,9 @@ from .testing import (
     run_test_suites,
     list_test_cases_in_test_suites,
 )
+from .benchmarks import (
+    call_benchmarks,
+)
 import logging
 from .failure import (
     fail_without_error,
@@ -406,6 +409,32 @@ def run_cpu_ci(config: ProjectConfig, repo_file_tree: MutableFileTreeWithMtime, 
         _l.info("Running doxygen check...")
         run_doxygen_check(config, verbosity=verbosity)
 
+    if len(config.all_benchmark_targets) > 0:
+        _l.info("Building release build of %s", config.all_benchmark_targets)
+        build_targets(
+            repo=config.repo,
+            repo_path_tree=repo_file_tree,
+            config=config,
+            targets=[t.build_target for t in config.all_benchmark_targets],
+            jobs=num_jobs,
+            verbosity=verbosity,
+            build_dir=config.release_build_dir,
+            redirect_build_stdout_to_stderr=False,
+        )
+
+        _l.info("Running benchmarks %s", config.all_benchmark_targets)
+        benchmark_results = call_benchmarks(
+            config=config,
+            benchmarks=list(sorted(config.all_benchmark_targets)),
+            build_dir=config.release_build_dir,
+            num_jobs=num_jobs,
+        )
+
+        if (len(benchmark_results.failed) > 0
+            or len(benchmark_results.timed_out) > 0
+            or len(benchmark_results.errored) > 0
+        ):
+            fail_without_error()
 
 
 def run_gpu_ci(config: ProjectConfig, verbosity: int, num_jobs: int) -> None:
